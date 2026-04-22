@@ -1,0 +1,514 @@
+// =====================================================
+//LÓGICA DE FRONT-END PARA SERIACIÓN EN MODALIDAD MIXTA
+// =====================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // =====================================================
+    // 1. REFERENCIAS Y VARIABLES GLOBALES
+    // =====================================================
+    const selPeriodo = document.getElementById('selPeriodo');
+    const selCarrera = document.getElementById('selCarrera');
+    const selPlan = document.getElementById('selPlan');
+    const selGrado = document.getElementById('selGrado');
+    const btnLimpiar = document.getElementById('btnLimpiarFiltros');
+    const contenedorTabla = document.getElementById('contenedorTabla');
+    const tbodyMaterias = document.getElementById('tbodyMaterias');
+    const badgeTotal = document.getElementById('badgeTotalMaterias');
+    const contenedorGrafica = document.getElementById('contenedorGrafica');
+    const tituloGrafica = document.getElementById('tituloGrafica');
+    const diagramaGantt = document.getElementById('diagramaGantt');
+    const bodyGantt = document.getElementById('bodyGantt');
+    const headerSemanas = document.getElementById('headerSemanas');
+    const graficaVacia = document.getElementById('graficaVacia');
+
+    let opcionesTipoAsignaturaHTML = '<option value=""> Elegir </option>';
+
+    // =====================================================
+    // 2. FUNCIONES DE APOYO 
+    // =====================================================
+    //función para resetear selects en cascada
+    function resetSelect(selectElement) {
+        if (!selectElement) return;
+        selectElement.innerHTML = '<option value=""> Seleccionar </option>';
+        selectElement.disabled = true;
+    }
+
+    async function fetchFiltros(action, params = {}) {
+        if (typeof showLoading === 'function') showLoading('Cargando información...');
+        try {
+            const urlParams = new URLSearchParams();
+            urlParams.append('action', action);
+            for (const [key, value] of Object.entries(params)) {
+                urlParams.append(key, value);
+            }
+            const response = await fetch(`Services/ConsultaFiltrosService.jsp?${urlParams.toString()}`);
+            const data = await response.json();
+            return data.success ? data.data : [];
+        } catch (error) {
+            console.error("Error en Fetch:", error);
+            return [];
+        } finally {
+            if (typeof hideLoading === 'function') hideLoading();
+        }
+    }
+
+    async function ejecutarGuardado(materias) {
+        if (typeof showLoading === 'function') showLoading('Guardando seriación...');
+        try {
+            const params = new URLSearchParams();
+            params.append('materias_json', JSON.stringify(materias));
+            const response = await fetch('Services/GuardarSeriacionService.jsp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error("Error al guardar:", error);
+            return { success: false, error: 'Error de conexión con el servidor.' };
+        } finally {
+            if (typeof hideLoading === 'function') hideLoading();
+        }
+    }
+
+    // =====================================================
+    // 3. CARGA DE CATÁLOGOS INICIALES
+    // =====================================================
+    async function cargarPeriodos() {
+        if (!selPeriodo) return;
+        const periodos = await fetchFiltros('periodos');
+        periodos.forEach(p => selPeriodo.add(new Option(p.descripcion, p.cve_periodo)));
+    }
+
+    async function cargarTiposAsignatura() {
+        const tipos = await fetchFiltros('tipos_asignatura');
+        tipos.forEach(t => {
+            opcionesTipoAsignaturaHTML += `<option value="${t.cve_tipo_asig}">${t.descripcion}</option>`;
+        });
+    }
+
+    // =====================================================
+    // 4. Gráfica
+    // =====================================================
+    function actualizarGrafica() {
+        if (!tbodyMaterias) return;
+        const filas = tbodyMaterias.querySelectorAll('tr');
+        let materiasGantt = [];
+        let maxSemanaGeneral = 0;
+
+        // Recolectar datos de la tabla
+        filas.forEach(fila => {
+            const nombreMateria = fila.querySelector('.materia-titulo').textContent;
+            const inputDuracion = fila.querySelector('.calculo-duracion');
+
+            if (!inputDuracion) return;
+            const cve = inputDuracion.getAttribute('data-cve');
+            const tipo = document.getElementById(`tipo_${cve}`).value;
+            const inicio = parseInt(document.getElementById(`inicio_${cve}`).value) || 0;
+            const fin = parseInt(document.getElementById(`fin_${cve}`).value) || 0;
+
+            if (tipo && inicio > 0 && fin >= inicio) {
+                if (fin > maxSemanaGeneral) maxSemanaGeneral = fin;
+                materiasGantt.push({ cve, nombreMateria, tipo, inicio, fin });
+            }
+        });
+
+        // mostrar estado vacío
+        if (materiasGantt.length > 0) {
+            let htmlSemanas = '';
+            let htmlBarras = '';
+            for (let i = 1; i <= maxSemanaGeneral; i++) {
+                htmlSemanas += `<div class="header-semana gantt-semana-num">${i}</div>`;
+            }
+
+            materiasGantt.forEach(mat => {
+                const colorClass = (mat.tipo === '1') ? 'bg-virtual gantt-virtual' : 'bg-semi gantt-semipresencial';
+                const estiloUbicacion = `grid-column: ${mat.inicio} / ${mat.fin + 1};`;
+                htmlBarras += `
+                    <div class="fila-materia" style="grid-template-columns: repeat(${maxSemanaGeneral}, 1fr);">
+                        <div class="barra-materia ${colorClass}" style="${estiloUbicacion}">
+                            <span>${mat.nombreMateria}</span>
+                            <button class="btn-eliminar-barra" data-cve="${mat.cve}" title="Quitar">&times;</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            headerSemanas.style.gridTemplateColumns = `repeat(${maxSemanaGeneral}, 1fr)`;
+            bodyGantt.style.gridTemplateColumns = `none`;
+            headerSemanas.innerHTML = htmlSemanas;
+            bodyGantt.innerHTML = htmlBarras;
+            graficaVacia.classList.add('d-none');
+            diagramaGantt.classList.remove('d-none');
+
+        } else {
+            graficaVacia.classList.remove('d-none');
+            diagramaGantt.classList.add('d-none');
+        }
+    }
+
+    // =====================================================
+    // 5. filtros en cascada y carga de materias
+    // =====================================================
+    if (selPeriodo) {
+        selPeriodo.addEventListener('change', async function () {
+            resetSelect(selCarrera); resetSelect(selPlan); resetSelect(selGrado);
+            if (contenedorTabla) contenedorTabla.classList.add('d-none');
+            if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+            if (this.value) {
+                const carreras = await fetchFiltros('carreras');
+                if (carreras.length > 0) {
+                    selCarrera.disabled = false;
+                    carreras.forEach(c => selCarrera.add(new Option(c.descripcion, c.cve_carrera)));
+                }
+            }
+        });
+    }
+
+    if (selCarrera) {
+        selCarrera.addEventListener('change', async function () {
+            resetSelect(selPlan); resetSelect(selGrado);
+            if (contenedorTabla) contenedorTabla.classList.add('d-none');
+            if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+            if (this.value) {
+                const planes = await fetchFiltros('planes', { cve_carrera: this.value });
+                if (planes.length > 0) {
+                    selPlan.disabled = false;
+                    planes.forEach(p => selPlan.add(new Option(p.descripcion, p.cve_plan)));
+                }
+            }
+        });
+    }
+
+    if (selPlan) {
+        selPlan.addEventListener('change', async function () {
+            resetSelect(selGrado);
+            if (contenedorTabla) contenedorTabla.classList.add('d-none');
+            if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+            if (this.value) {
+                const grados = await fetchFiltros('grados', {
+                    cve_periodo: selPeriodo.value,
+                    cve_carrera: selCarrera.value,
+                    cve_plan: this.value
+                });
+                if (grados.length > 0) {
+                    selGrado.disabled = false;
+                    grados.forEach(g => selGrado.add(new Option(g.descripcion, g.cve_grado)));
+                }
+            }
+        });
+    }
+
+    // Carga de Materias y Scroll Automático
+    if (selGrado) {
+        selGrado.addEventListener('change', async function () {
+            if (!this.value || !contenedorTabla || !tbodyMaterias) {
+                if (contenedorTabla) contenedorTabla.classList.add('d-none');
+                if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+                return;
+            }
+
+            const materias = await fetchFiltros('materias', {
+                cve_periodo: selPeriodo.value,
+                cve_carrera: selCarrera.value,
+                cve_plan: selPlan.value,
+                cve_grado: this.value
+            });
+
+            tbodyMaterias.innerHTML = '';
+
+            if (materias.length > 0) {
+                const txtPeriodo = selPeriodo.options[selPeriodo.selectedIndex].text;
+                const txtCarrera = selCarrera.options[selCarrera.selectedIndex].text.split(' / ')[0];
+                const txtGrado = selGrado.options[selGrado.selectedIndex].text;
+                if (tituloGrafica) tituloGrafica.textContent = `PERIODO: ${txtPeriodo} - ${txtCarrera} - ${txtGrado}`;
+
+                materias.forEach(mat => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-start materia-titulo">${mat.NombreMateria}</td>
+                        <td>
+                            <select class="form-select form-select-sm text-center" id="tipo_${mat.cve_materia}">
+                                ${opcionesTipoAsignaturaHTML}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-center calculo-duracion mx-auto" 
+                                   style="width: 70px;" min="1" data-cve="${mat.cve_materia}" id="inicio_${mat.cve_materia}">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-center calculo-duracion mx-auto" 
+                                   style="width: 70px;" min="1" data-cve="${mat.cve_materia}" id="fin_${mat.cve_materia}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm text-center mx-auto input-duracion-readonly" 
+                                   style="width: 70px;" readonly id="duracion_${mat.cve_materia}">
+                        </td>
+                        <td><input type="date" class="form-control form-control-sm text-center text-muted" id="fechaInicio_${mat.cve_materia}"></td>
+                        <td><input type="date" class="form-control form-control-sm text-center text-muted" id="fechaFin_${mat.cve_materia}"></td>
+                    `;
+                    tbodyMaterias.appendChild(tr);
+                });
+
+                if (badgeTotal) badgeTotal.textContent = `${materias.length} materia${materias.length !== 1 ? 's' : ''}`;
+                contenedorTabla.classList.remove('d-none');
+                if (contenedorGrafica) contenedorGrafica.classList.remove('d-none');
+
+                actualizarGrafica();
+                setTimeout(() => {
+                    contenedorTabla.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 150);
+            } else {
+                contenedorTabla.classList.add('d-none');
+                if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+            }
+        });
+    }
+
+    // =====================================================
+    // 6. INTERACCIÓN EN TABLA Y GRÁFICA
+    // =====================================================
+
+    // Escribir en la tabla
+    if (tbodyMaterias) {
+        tbodyMaterias.addEventListener('input', (e) => {
+            if (e.target.classList.contains('calculo-duracion')) {
+                const cve = e.target.getAttribute('data-cve');
+                const inicio = parseInt(document.getElementById(`inicio_${cve}`).value) || 0;
+                const fin = parseInt(document.getElementById(`fin_${cve}`).value) || 0;
+                const inputDuracion = document.getElementById(`duracion_${cve}`);
+                if (inicio > 0 && fin > 0 && fin >= inicio) {
+                    inputDuracion.value = (fin - inicio) + 1;
+                } else {
+                    inputDuracion.value = '';
+                }
+            }
+            actualizarGrafica();
+        });
+
+        tbodyMaterias.addEventListener('change', (e) => {
+            if (e.target.tagName === 'SELECT') actualizarGrafica();
+        });
+    }
+
+    // Borrar desde la gráfica (Tache)
+    if (bodyGantt) {
+        bodyGantt.addEventListener('click', function (e) {
+            if (e.target.classList.contains('btn-eliminar-barra')) {
+                if (confirm("¿Desea remover esta materia de la gráfica?")) {
+                    const cve = e.target.getAttribute('data-cve');
+
+                    const inpIni = document.getElementById(`inicio_${cve}`); if (inpIni) inpIni.value = '';
+                    const inpFin = document.getElementById(`fin_${cve}`); if (inpFin) inpFin.value = '';
+                    const inpDur = document.getElementById(`duracion_${cve}`); if (inpDur) inpDur.value = '';
+                    const selTip = document.getElementById(`tipo_${cve}`); if (selTip) selTip.value = '';
+                    const fIni = document.getElementById(`fechaInicio_${cve}`); if (fIni) fIni.value = '';
+                    const fFin = document.getElementById(`fechaFin_${cve}`); if (fFin) fFin.value = '';
+
+                    actualizarGrafica();
+                }
+            }
+        });
+    }
+
+    // =====================================================
+    // 7. BOTÓN LIMPIAR 
+    // =====================================================
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', function () {
+            // Limpiar selects
+            if (selPeriodo) selPeriodo.value = '';
+            resetSelect(selCarrera);
+            resetSelect(selPlan);
+            resetSelect(selGrado);
+
+            // Vaciar la tabla y ocultar todo
+            if (tbodyMaterias) tbodyMaterias.innerHTML = '';
+            if (contenedorTabla) contenedorTabla.classList.add('d-none');
+            if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+
+            // Regresar al inicio suavemente
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+    //===========================================
+    // 8. BOTÓN GUARDAR SERIACIÓN
+    //===========================================
+    const btnGuardar = document.getElementById('btnGuardarSeriacion');
+
+    if (btnGuardar) {
+        btnGuardar.addEventListener('click', async function () {
+            const periodo = document.getElementById('selPeriodo').value;
+            const carrera = document.getElementById('selCarrera').value;
+            const plan = document.getElementById('selPlan').value;
+
+            if (!periodo || !carrera || !plan) {
+                showToast('Por favor, selecciona Periodo, Carrera y Plan primero.', 'warning');
+                return;
+            }
+
+            const filas = tbodyMaterias.querySelectorAll('tr');
+            const totalMateriasEnTabla = filas.length; // Cuántas materias debe haber
+            let materiasParaGuardar = [];
+
+            // Extraemos los datos basándonos en las columnas de tu diseño
+            filas.forEach(fila => {
+                // Identificador de la materia (Asegúrate de que tu <tr> tenga el id de la materia, ej: id="145")
+                const cveMateria = fila.getAttribute('data-materia') || fila.id; 
+                
+                const selectTipo = fila.querySelector('select');
+                const inputs = fila.querySelectorAll('input');
+
+                // Según tu imagen, cada fila tiene 1 select y 5 inputs
+                if (selectTipo && inputs.length >= 5) {
+                    const tipoAsig = selectTipo.value;
+                    const semInicia = inputs[0].value; // Input 1: Semana Inicio
+                    const semFin = inputs[1].value;    // Input 2: Semana Fin
+                    // inputs[2] es "Semanas de Duración", no lo mandamos a BD porque es calculado
+                    const fechaInicia = inputs[3].value; // Input 4: Fecha Inicio
+                    const fechaFin = inputs[4].value;    // Input 5: Fecha Fin
+
+                    // Solo guardamos si el usuario llenó los datos obligatorios de esa fila
+                    if (tipoAsig !== "" && semInicia !== "" && semFin !== "") {
+                        materiasParaGuardar.push({
+                            cvePeriodo: periodo,
+                            cveCarrera: carrera,
+                            cvePlan: plan,
+                            cveMateria: cveMateria,
+                            cveTipoAsig: tipoAsig,
+                            semInicia: semInicia,
+                            semTermina: semFin,
+                            fechaInicia: fechaInicia,
+                            fechaTermina: fechaFin
+                        });
+                    }
+                }
+            });
+
+            console.log("Filas contadas en total: ", totalMateriasEnTabla);
+            console.log("Filas que pasaron la validación: ", materiasParaGuardar.length);
+            console.log("Datos recolectados: ", materiasParaGuardar);
+
+            // VALIDACIÓN REGLAMENTARIA
+            if (materiasParaGuardar.length < totalMateriasEnTabla) {
+                showToast('Falta configurar materias. Debes completar el cuatrimestre entero.', 'warning');
+                return; // Detiene el proceso si no están completas
+            }
+
+            // ENVÍO AL SERVICE (Con try-catch para evitar que truene si hay error de red)
+            try {
+                // Asegúrate de tener la función ejecutarGuardado() definida en tu app.js
+                const resultado = await ejecutarGuardado(materiasParaGuardar);
+
+                if (resultado && resultado.success) {
+                    showToast(resultado.message || '¡Seriación guardada con éxito!', 'success');
+                } else {
+                    showToast(resultado.error || 'Error al procesar el guardado.', 'error');
+                }
+            } catch (error) {
+                console.error("Error en la ejecución:", error);
+                showToast('Error de conexión al intentar guardar.', 'error');
+            }
+        });
+    }
+    // =====================================================
+    // 9. ARRANQUE DEL MÓDULO
+    // =====================================================
+    cargarPeriodos();
+    cargarTiposAsignatura();
+});
+// =========================================================
+// LÓGICA PARA EL HISTORIAL DE SERIACIONES (VER REGISTROS)
+// =========================================================
+
+async function cargarHistorial() {
+    console.log("PASO 1: Iniciando función cargarHistorial...");
+
+    // Buscamos el contenedor
+    const contenedor = document.getElementById('accordionHistorial') || document.getElementById('divHistorialDinamico');
+    
+    if (!contenedor) {
+        console.log("PASO 2 🛑: No encontré el ID 'accordionHistorial' ni 'divHistorialDinamico' en el HTML. Me detengo.");
+        return; 
+    }
+    console.log("PASO 2 ✅: Contenedor encontrado en el HTML.");
+
+    try {
+        console.log("PASO 3: Intentando llamar a Services/ObtenerHistorialService.jsp...");
+        // Usamos la O mayúscula como tienes tu archivo físico
+        const response = await fetch('Services/ObtenerHistorialService.jsp');
+        console.log("PASO 4: El servidor respondió con status:", response.status);
+
+        const result = await response.json();
+        console.log("PASO 5: JSON convertido exitosamente. Datos:", result);
+
+        if (result.success) {
+            const agrupaciones = result.data;
+            let htmlAcordeon = '';
+            let index = 0;
+
+            if (Object.keys(agrupaciones).length === 0) {
+                console.log("PASO 6: No hay datos, mostrando mensaje de vacío.");
+                contenedor.innerHTML = '<div class="alert alert-info text-center mt-3"><i class="fa-solid fa-circle-info"></i> No hay seriaciones registradas aún.</div>';
+                return;
+            }
+
+            console.log("PASO 6: Armando el Acordeón...");
+            for (const [periodo, carreras] of Object.entries(agrupaciones)) {
+                const idCollapse = `collapse_${index}`;
+                const cantidadRegistros = carreras.length;
+
+                htmlAcordeon += `
+                <div class="accordion-item mb-3 border-0">
+                    <h2 class="accordion-header d-flex align-items-center gap-3">
+                        <button class="accordion-button accordion-historial-header rounded shadow-sm collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${idCollapse}">
+                            <span class="fw-bold text-dark me-2">Periodo:</span> ${periodo}
+                        </button>
+                        <span class="badge-registros ms-3 shadow-sm">${cantidadRegistros} Registro(s)</span>
+                    </h2>
+                    
+                    <div id="${idCollapse}" class="accordion-collapse collapse" data-bs-parent="#accordionHistorial">
+                        <div class="accordion-body pt-4 pb-2">
+                `;
+
+                carreras.forEach(carrera => {
+                    const fechaMod = carrera.fecha_actualizacion ? carrera.fecha_actualizacion.substring(0, 19) : 'Sin fecha';
+                    htmlAcordeon += `
+                            <div class="tarjeta-registro-carrera d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-dark">
+                                        ${carrera.nombre_carrera} <span class="text-muted fw-normal">|</span> Cuatrimestre ${carrera.grado} <span class="text-muted fw-normal">|</span> Plan ${carrera.cve_plan}
+                                    </h6>
+                                    <p>Actualizó: Usuario ID ${carrera.id_usuario_actualizo} el ${fechaMod}</p>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn-accion-historial btn-ver-verde" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}">Ver</button>
+                                    <button class="btn-accion-historial btn-editar-azul" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}">Editar</button>
+                                    <button class="btn-accion-historial btn-eliminar-rojo" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}">Eliminar</button>
+                                </div>
+                            </div>
+                    `;
+                });
+
+                htmlAcordeon += `</div></div></div>`;
+                index++;
+            }
+
+            contenedor.innerHTML = htmlAcordeon;
+            console.log("PASO 7: ¡Terminado! HTML inyectado en pantalla.");
+            
+        } else {
+            console.error("Error del servidor (Success=false):", result.error);
+            contenedor.innerHTML = `<div class="alert alert-danger text-center"><i class="fa-solid fa-triangle-exclamation"></i> Error al cargar datos: ${result.error}</div>`;
+        }
+    } catch (error) {
+        console.error("PASO 🛑: Error de Fetch o al convertir JSON:", error);
+        contenedor.innerHTML = '<div class="alert alert-danger text-center"><i class="fa-solid fa-wifi"></i> Error de conexión al cargar el historial. Verifica consola.</div>';
+    }
+}
+
+// Escuchamos el evento de carga de la página para disparar la función
+document.addEventListener('DOMContentLoaded', () => {
+    cargarHistorial();
+});
