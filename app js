@@ -70,51 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof hideLoading === 'function') hideLoading();
         }
     }
-
-// Validar duplicados cuando el usuario elija el Grado (Cuatrimestre)
-if (typeof selGrado !== 'undefined' && selGrado) {
-    selGrado.addEventListener('change', async () => {
-        // Importante: Si estamos en modo EDICIÓN, no bloqueamos nada
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('modo') === 'editar') return;
-
-        const p = selPeriodo.value;
-        const c = selCarrera.value;
-        const pl = selPlan.value;
-        const g = selGrado.value;
-
-        if (p && c && pl && g) {
-            try {
-                const resp = await fetch(`Services/VerificarExistenciaSeriacion.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
-                const res = await resp.json();
-
-                if (res.existe) {
-                    Swal.fire({
-                        title: '¡Ya registrado!',
-                        html: `Este cuatrimestre ya tiene una seriación guardada.<br><br><b>¿Qué quieres hacer?</b>`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Ir al Historial',
-                        cancelButtonText: 'Elegir otro'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Si quiere editarlo, lo mandamos al historial
-                            window.location.href = 'historial_seriacion_mixta.jsp';
-                        } else {
-                            // Si no, limpiamos el grado para que no pueda seguir
-                            selGrado.value = "";
-                            if (document.getElementById('contenedorTabla')) {
-                                document.getElementById('contenedorTabla').classList.add('d-none');
-                            }
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error("Error validando:", err);
-            }
-        }
-    });
-}
     // =====================================================
     // 3. CARGA DE CATÁLOGOS INICIALES
     // =====================================================
@@ -243,17 +198,50 @@ if (typeof selGrado !== 'undefined' && selGrado) {
 
     if (selGrado) {
         selGrado.addEventListener('change', async function () {
+            // limpiar y ocultar si el usuario regresó a "Seleccionar"
             if (!this.value || !contenedorTabla || !tbodyMaterias) {
                 if (contenedorTabla) contenedorTabla.classList.add('d-none');
                 if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
                 return;
             }
 
+            const p = selPeriodo.value;
+            const c = selCarrera.value;
+            const pl = selPlan.value;
+            const g = this.value;
+
+            // =========================================================
+            //  6. VALIDACIÓN DE EXISTENCIA
+            // =========================================================
+            const params = new URLSearchParams(window.location.search);
+            const esEdicion = params.get('modo') === 'editar';
+
+            if (!esEdicion && p && c && pl && g) {
+                try {
+                    const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
+                    const res = await resp.json();
+
+                    if (res.existe) {
+                        alert('Ya existe una seriación registrada para este cuatrimestre. Revise los registros en el Historial.');
+                        this.value = "";
+                        if (contenedorTabla) contenedorTabla.classList.add('d-none');
+                        if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+                        return; 
+                    }
+                } catch (err) {
+                    console.error("Error validando:", err);
+                    return; 
+                }
+            }
+
+            // =========================================================
+            // 7. DIBUJAR TABLA SI TODO OK
+            // =========================================================
             const materias = await fetchFiltros('materias', {
-                cve_periodo: selPeriodo.value,
-                cve_carrera: selCarrera.value,
-                cve_plan: selPlan.value,
-                cve_grado: this.value
+                cve_periodo: p,
+                cve_carrera: c,
+                cve_plan: pl,
+                cve_grado: g
             });
 
             tbodyMaterias.innerHTML = '';
@@ -262,11 +250,12 @@ if (typeof selGrado !== 'undefined' && selGrado) {
                 const txtPeriodo = selPeriodo.options[selPeriodo.selectedIndex].text;
                 const txtCarrera = selCarrera.options[selCarrera.selectedIndex].text.split(' / ')[0];
                 const txtGrado = selGrado.options[selGrado.selectedIndex].text;
+              
                 if (tituloGrafica) tituloGrafica.textContent = `PERIODO: ${txtPeriodo} - ${txtCarrera} - ${txtGrado}`;
                 
                 materias.forEach(mat => {
                     const tr = document.createElement('tr');
-                    tr.setAttribute('data-materia', mat.cve_materia); // Inyección de ID
+                    tr.setAttribute('data-materia', mat.cve_materia);
                     
                     tr.innerHTML = `
                         <td class="text-start materia-titulo">${mat.NombreMateria}</td>
@@ -276,19 +265,19 @@ if (typeof selGrado !== 'undefined' && selGrado) {
                             </select>
                         </td>
                         <td>
-                            <input type="text" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control form-control-sm text-center calculo-duracion mx-auto" 
+                            <input type="text" autocomplete="off" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control form-control-sm text-center calculo-duracion mx-auto" 
                             style="width: 70px;" data-cve="${mat.cve_materia}" id="inicio_${mat.cve_materia}">
                         </td>
                         <td>
-                            <input type="text" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control form-control-sm text-center calculo-duracion mx-auto" 
+                            <input type="text" autocomplete="off" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control form-control-sm text-center calculo-duracion mx-auto" 
                             style="width: 70px;" data-cve="${mat.cve_materia}" id="fin_${mat.cve_materia}">
                         </td>
                         <td>
-                            <input type="text" class="form-control form-control-sm text-center mx-auto input-duracion-readonly" 
+                            <input type="text" autocomplete="off" class="form-control form-control-sm text-center mx-auto input-duracion-readonly" 
                             style="width: 70px;" readonly id="duracion_${mat.cve_materia}">
                         </td>
-                        <td><input type="date" class="form-control form-control-sm text-center text-muted" id="fechaInicio_${mat.cve_materia}"></td>
-                        <td><input type="date" class="form-control form-control-sm text-center text-muted" id="fechaFin_${mat.cve_materia}"></td>
+                        <td><input type="date" autocomplete="off" class="form-control form-control-sm text-center text-muted" id="fechaInicio_${mat.cve_materia}"></td>
+                        <td><input type="date" autocomplete="off" class="form-control form-control-sm text-center text-muted" id="fechaFin_${mat.cve_materia}"></td>
                     `;
                     tbodyMaterias.appendChild(tr);
                 });
@@ -309,14 +298,14 @@ if (typeof selGrado !== 'undefined' && selGrado) {
     }
 
     // =====================================================
-    // 6. INTERACCIÓN EN TABLA Y GRÁFICA
+    // 8. INTERACCIÓN EN TABLA Y GRÁFICA
     // =====================================================
     if (tbodyMaterias) {
         
         tbodyMaterias.addEventListener('wheel', (e) => {
             if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
-                e.preventDefault(); // Evita que el número cambie
-                e.target.blur();    // Quita el cursor del cuadro
+                e.preventDefault(); 
+                e.target.blur();  
             }
         }, { passive: false });
 
@@ -339,7 +328,7 @@ if (typeof selGrado !== 'undefined' && selGrado) {
         });
     }
     // =====================================================
-    // 7. BOTÓN LIMPIAR 
+    // 9. BOTÓN LIMPIAR 
     // =====================================================
     if (btnLimpiar) {
         btnLimpiar.addEventListener('click', function () {
@@ -355,7 +344,7 @@ if (typeof selGrado !== 'undefined' && selGrado) {
     }
 
     // =====================================================
-    // 8. BOTÓN GUARDAR SERIACIÓN
+    // 10. BOTÓN GUARDAR SERIACIÓN
     // =====================================================
     const btnGuardar = document.getElementById('btnGuardarSeriacion');
     if (btnGuardar) {
@@ -405,23 +394,50 @@ if (typeof selGrado !== 'undefined' && selGrado) {
             });
 
             if (materiasParaGuardar.length < totalMateriasEnTabla) {
-                showToast('Falta configurar materias. Debes completar el cuatrimestre entero.', 'warning');
+                showToast('Falta configurar materias. Debe completar el cuatrimestre entero.', 'warning');
                 return; 
             }
+    // ==========================================
+    // 11. VALIDACIÓN FINAL ANTES DE GUARDAR 
+    // ==========================================
+    const params = new URLSearchParams(window.location.search);
+    const modoActual = params.get('modo');
 
+    if (modoActual !== 'editar') {
+        const p = selPeriodo.value;
+        const c = selCarrera.value;
+        const pl = selPlan.value;
+        const g = selGrado.value;
+
+        try {
+            
+            const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
+            const res = await resp.json();
+
+            if (res.existe) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Esta seriación ya se encuentra registrada, para hacer cambios ve al Historial.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+        } catch (err) {
+            console.error("Error en la validación final:", err);
+            return; 
+        }
+    }
             try {
                 const resultado = await ejecutarGuardado(materiasParaGuardar);
                 
                 if (resultado && resultado.success) {
-                    // 1. Activamos la pantalla de carga para bloquear la pantalla
+                
                     if (typeof showLoading === 'function') {
                         showLoading('Guardando y actualizando pantalla...');
                     }
-
-                    // 2. Mostramos la palomita verde de éxito
                     showToast(resultado.message || '¡Seriación guardada con éxito!', 'success');
 
-                    // 3. Le damos 1.5 segundos (1500ms) de "respiro" al usuario para leer el mensaje antes de recargar
                     setTimeout(() => {
                         window.location.href = 'seriacion_mod_mixta.jsp';
                     }, 1500);
@@ -436,8 +452,8 @@ if (typeof selGrado !== 'undefined' && selGrado) {
             }
         });
     }
-// =====================================================
-    // 9. LÓGICA PARA EL HISTORIAL DE SERIACIONES (NUEVA VISTA CARDS)
+    // =====================================================
+    // 12. LÓGICA PARA EL HISTORIAL DE SERIACIONES 
     // =====================================================
     let datosHistorialGlobal = {}; 
 
@@ -496,8 +512,6 @@ if (typeof selGrado !== 'undefined' && selGrado) {
     function mostrarDetallePeriodo(periodo, carreras) {
     document.getElementById('vistaPeriodos').classList.add('d-none');
     document.getElementById('vistaDetallePeriodo').classList.remove('d-none');
-    
-    // Inyectamos solo la estructura con una clase personalizada
     document.getElementById('tituloDetallePeriodo').innerHTML = `
         <div class="alert alert-info nota-informativa">
             <i class="fa-solid fa-info-circle"></i>
@@ -532,13 +546,10 @@ if (typeof selGrado !== 'undefined' && selGrado) {
     });
     contenedorCarreras.innerHTML = htmlCarreras;
 }
-
-    // 1. Clic en los botones del historial
     const listaCarrerasDiv = document.getElementById('listaCardsCarreras');
     if (listaCarrerasDiv) {
         listaCarrerasDiv.addEventListener('click', async (e) => {
-            
-            // SI CLICKEAN "VER" (Abre el Modal)
+
             if (e.target.classList.contains('btn-ver')) {
                 const btn = e.target;
                 const p = btn.getAttribute('data-periodo');
@@ -547,23 +558,23 @@ if (typeof selGrado !== 'undefined' && selGrado) {
                 await abrirModalVerSeriacion(p, c, pl);
             } 
             
-            // SI CLICKEAN "EDITAR"
+      
             else if (e.target.classList.contains('btn-editar')) {
-                // Replicamos la alerta de tu prototipo
+             
                 if (confirm("Se editará esta seriación y los datos se cargarán en la pantalla principal.\n\n¿Deseas continuar?")) {
                     const btn = e.target;
                     const p = btn.getAttribute('data-periodo');
                     const c = btn.getAttribute('data-carrera');
                     const pl = btn.getAttribute('data-plan');
                     
-                    // Viajamos a la página principal llevando las llaves en la "maleta" (URL)
+
                     window.location.href = `seriacion_mod_mixta.jsp?modo=editar&periodo=${p}&carrera=${c}&plan=${pl}`;
                 }
             }
         });
     }
 
-    // 2. FUNCIÓN DEL MODAL (COMPLETA CON TABLA Y GANTT)
+
     async function abrirModalVerSeriacion(periodo, carrera, plan) {
         try {
             const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}`);
@@ -572,13 +583,11 @@ if (typeof selGrado !== 'undefined' && selGrado) {
             if (res.success) {
                 const materias = res.data;
 
-                // BLINDAJE: Si no hay datos
                 if (!materias || materias.length === 0) {
                     alert("No hay datos guardados para esta carrera.");
                     return;
                 }
 
-                // Función para fechas
                 const formatearFecha = (fechaSTR) => {
                     if (!fechaSTR) return 'N/A';
                     const fechaLimpia = String(fechaSTR).substring(0, 10);
@@ -587,10 +596,9 @@ if (typeof selGrado !== 'undefined' && selGrado) {
                     return fechaLimpia;
                 };
 
-                // Llenar encabezado
                 document.getElementById('modalVerUsuario').textContent = ` ${materias[0].usuario.toUpperCase()}`;
                 document.getElementById('modalVerFecha').textContent = ` el ${materias[0].fechaAct}`;
-                // 1. DIBUJAR LA TABLA
+        
                 let htmlTabla = '';
                 materias.forEach(m => {
                     htmlTabla += `<tr>
@@ -605,29 +613,26 @@ if (typeof selGrado !== 'undefined' && selGrado) {
                 });
                 document.getElementById('tbodyModalMaterias').innerHTML = htmlTabla;
 
-                // 2. DIBUJAR EL GANTT (VERSIÓN GRID - COMO EL DISEÑO ORIGINAL)
+    
                 const maxSemana = Math.max(...materias.map(m => parseInt(m.fin, 10)), 14); 
 
-                // Creamos la cuadrícula para el encabezado con un "gap" (espacio) de 8px
+            
                 let htmlGantt = `<div style="display: grid; grid-template-columns: repeat(${maxSemana}, 1fr); gap: 8px;" class="mb-2">`;
                 for (let i = 1; i <= maxSemana; i++) {
                     htmlGantt += `<div class="gantt-modal-header">${i}</div>`;
                 }
                 htmlGantt += '</div>';
 
-                // Dibujamos cada materia en su propia cuadrícula alineada
                 materias.forEach(m => {
                     const inicio = parseInt(m.inicio, 10);
                     const fin = parseInt(m.fin, 10);
                     const tipoId = parseInt(m.tipoId, 10);
-                    const anchoBarra = fin - inicio + 1; // Cuántas columnas ocupa
+                    const anchoBarra = fin - inicio + 1; 
 
                     const claseColor = tipoId === 1 ? 'barra-modal-virtual' : 'barra-modal-semipresencial';
 
-                    // Cada fila tiene la misma cuadrícula con los mismos espacios
                     htmlGantt += `<div style="display: grid; grid-template-columns: repeat(${maxSemana}, 1fr); gap: 8px;" class="mb-2">`;
                     
-                    // Magia pura: Le decimos a la barra en qué columna empezar y cuántas ocupar
                     htmlGantt += `<div class="${claseColor}" style="grid-column: ${inicio} / span ${anchoBarra};" title="${m.nombre}">${m.nombre}</div>`;
                     
                     htmlGantt += '</div>';
@@ -635,7 +640,6 @@ if (typeof selGrado !== 'undefined' && selGrado) {
 
                 document.getElementById('modalVerGantt').innerHTML = htmlGantt;
 
-                // Mostrar Modal
                 const modal = new bootstrap.Modal(document.getElementById('modalVerSeriacion'));
                 modal.show();
             }
@@ -646,17 +650,17 @@ if (typeof selGrado !== 'undefined' && selGrado) {
     }
 
     // =====================================================
-    // BOTÓN VOLVER A PERIODOS (A prueba de fallos)
+    // BOTÓN VOLVER A PERIODOS
     // =====================================================
     document.addEventListener('click', (e) => {
-        // Busca si le diste clic al botón o al icono que está adentro del botón
+
         if (e.target.id === 'btnVolverPeriodos' || e.target.closest('#btnVolverPeriodos')) {
             document.getElementById('vistaDetallePeriodo').classList.add('d-none');
             document.getElementById('vistaPeriodos').classList.remove('d-none');
         }
     });
-   // =====================================================
-// 3. MODO EDICIÓN: AUTO-LLENADO DE PANTALLA PRINCIPAL
+// =====================================================
+//  AUTO-LLENADO DE PANTALLA PRINCIPAL
 // =====================================================
 setTimeout(() => {
     const parametrosEdicion = new URLSearchParams(window.location.search);
@@ -666,26 +670,19 @@ setTimeout(() => {
         const periodoEdit = parametrosEdicion.get('periodo');
         const carreraEdit = parametrosEdicion.get('carrera');
         const planEdit = parametrosEdicion.get('plan');
-
-        console.log(`🚀 Iniciando modo edición para: Periodo ${periodoEdit}, Carrera ${carreraEdit}, Plan ${planEdit}`);
-
-        // 1. Llenamos los selects en silencio
-        llenarFiltrosEnSilencio(periodoEdit, carreraEdit, planEdit);
-        
-        // 2. Traemos y pintamos las materias
         cargarDatosParaEditar(periodoEdit, carreraEdit, planEdit);
     }
-}, 500); // Retraso para dejar que tu app.js inicialice todo primero
+}, 500); 
 
 async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
     try {
-        console.log("🤫 Llenando filtros superiores en silencio...");
+    
         
         const periodos = await fetchFiltros('periodos');
         if (typeof selPeriodo !== 'undefined' && selPeriodo) {
             periodos.forEach(p => selPeriodo.add(new Option(p.descripcion, p.cve_periodo)));
             selPeriodo.value = periodo;
-            selPeriodo.disabled = true; // Bloqueado
+            selPeriodo.disabled = true; 
         }
 
         const carreras = await fetchFiltros('carreras');
@@ -693,7 +690,7 @@ async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
             selCarrera.disabled = false;
             carreras.forEach(c => selCarrera.add(new Option(c.descripcion, c.cve_carrera)));
             selCarrera.value = carrera;
-            selCarrera.disabled = true; // Bloqueado
+            selCarrera.disabled = true;
         }
 
         const planes = await fetchFiltros('planes', { cve_carrera: carrera });
@@ -701,42 +698,40 @@ async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
             selPlan.disabled = false;
             planes.forEach(p => selPlan.add(new Option(p.descripcion, p.cve_plan)));
             selPlan.value = plan;
-            selPlan.disabled = true; // Bloqueado
+            selPlan.disabled = true; 
         }
         
     } catch (error) {
-        console.error("❌ Error al llenar filtros en silencio:", error);
     }
 }
 
 async function cargarDatosParaEditar(periodo, carrera, plan) {
     try {
-        console.log("🔍 Buscando materias guardadas en la BD...");
+       
         const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}`);
         const res = await resp.json();
 
         if (res.success && res.data && res.data.length > 0) {
             const materias = res.data;
-            console.log("🔥 Inyectando materias en la tabla...", materias);
+           
 
             const tbodyMaterias = document.getElementById('tbodyMaterias') || document.querySelector('.tbodyMaterias');
             const contenedorTabla = document.getElementById('contenedorTabla');
             const contenedorGrafica = document.getElementById('contenedorGrafica');
             const badgeTotal = document.getElementById('badgeTotal');
-            const tituloGrafica = document.getElementById('tituloGrafica'); // Por si lo usas
+            const tituloGrafica = document.getElementById('tituloGrafica'); 
 
             if (!tbodyMaterias) return;
 
-            // 1. Llenamos el select del grado con el dato que viene de la BD
+           
             const gradoMat = materias[0].grado;
             if (typeof selGrado !== 'undefined' && selGrado && gradoMat) {
                 selGrado.innerHTML = ''; 
                 selGrado.add(new Option(`${gradoMat}° Cuatrimestre`, gradoMat));
                 selGrado.value = gradoMat;
-                selGrado.disabled = true; // Bloqueado
+                selGrado.disabled = true; 
             }
 
-            // Limpiamos la tabla
             tbodyMaterias.innerHTML = '';
 
             const formatFechaInput = (fechaDDMM) => {
@@ -746,7 +741,6 @@ async function cargarDatosParaEditar(periodo, carrera, plan) {
                 return fechaDDMM;
             };
 
-            // Dibujamos filas
             materias.forEach((mat, idx) => {
                 const cve = mat.cve_materia ? mat.cve_materia : `edit_${idx}`; 
                 const tr = document.createElement('tr');
@@ -779,20 +773,15 @@ async function cargarDatosParaEditar(periodo, carrera, plan) {
                 
                 tbodyMaterias.appendChild(tr);
 
-                // Asignar el valor al select de tipo
                 setTimeout(() => {
                     const selectTipo = document.getElementById(`tipo_${cve}`);
                     if(selectTipo) selectTipo.value = mat.tipoId;
                 }, 50);
             });
 
-            // Mostramos los contenedores principales
             if (contenedorTabla) contenedorTabla.classList.remove('d-none');
             if (contenedorGrafica) contenedorGrafica.classList.remove('d-none');
-
-            // 2. ACTUALIZACIÓN TERCA (A prueba de fallos)
             setTimeout(() => {
-                // Buscamos el contador usando tu variable global o buscando la clase de la etiqueta
                 const etiquetaContador = (typeof badgeTotal !== 'undefined' ? badgeTotal : null) 
                                       || document.getElementById('badgeTotal') 
                                       || document.querySelector('.badge:last-of-type') 
@@ -802,33 +791,31 @@ async function cargarDatosParaEditar(periodo, carrera, plan) {
                     etiquetaContador.textContent = `${materias.length} materia${materias.length !== 1 ? 's' : ''}`;
                     console.log("✅ Contador actualizado con éxito a:", materias.length);
                 } else {
-                    console.log("⚠️ No encontré la etiqueta del contador en el HTML.");
+                   
                 }
                 
-                // También actualizamos el título de la gráfica si existe
                 const tituloGrafica = document.getElementById('tituloGrafica') || document.querySelector('.titulo-grafica');
                 if (tituloGrafica) {
                     tituloGrafica.textContent = `MODO EDICIÓN (Cuatrimestre ${gradoMat})`;
                 }
             }, 1000);
 
-            // Disparamos el diagrama de Gantt
             if (typeof actualizarGrafica === 'function') {
                 setTimeout(actualizarGrafica, 1100); 
             }
 
         } else {
-            console.warn("⚠️ No se encontraron materias guardadas.");
+            alert("No se encontraron datos para editar");
         }
     } catch (error) {
-        console.error("❌ Error al cargar datos de edición:", error);
+        console.error("Error al cargar datos para edición:", error);
     }
 }
     // =====================================================
-    // 10. ARRANQUE DEL MÓDULO (SE DISPARA AL INICIAR LA PANTALLA)
+    // 10. ARRANQUE DEL MÓDULO 
     // =====================================================
     cargarPeriodos();
     cargarTiposAsignatura();
     cargarHistorial();
 
-}); // <==== AQUÍ SE CIERRA LA ÚNICA LLAVE MAESTRA DEL ARCHIVO
+}); 
