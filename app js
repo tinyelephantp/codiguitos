@@ -301,7 +301,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. INTERACCIÓN EN TABLA Y GRÁFICA
     // =====================================================
     if (tbodyMaterias) {
-        
+        // Darle vida al tache (eliminar barra del Gantt)
+    if (bodyGantt) {
+        bodyGantt.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-eliminar-barra')) {
+                // Obtenemos qué materia es
+                const cve = e.target.getAttribute('data-cve');
+                
+                // Limpiamos sus campos de inicio y fin en la tabla
+                const inputInicio = document.getElementById(`inicio_${cve}`);
+                const inputFin = document.getElementById(`fin_${cve}`);
+                const inputDuracion = document.getElementById(`duracion_${cve}`);
+                
+                if(inputInicio) inputInicio.value = '';
+                if(inputFin) inputFin.value = '';
+                if(inputDuracion) inputDuracion.value = '';
+                
+                // Redibujamos la gráfica (la barra desaparecerá mágicamente)
+                actualizarGrafica();
+            }
+        });
+    }
         tbodyMaterias.addEventListener('wheel', (e) => {
             if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
                 e.preventDefault(); 
@@ -374,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fechaInicia = inputs[3].value; 
                     const fechaFin = inputs[4].value;    
 
-                    if (tipoAsig !== "" && semInicia !== "" && semFin !== "") {
+                    if (tipoAsig !== "" && semInicia !== "" && semFin !== "" && fechaInicia !== "" && fechaFin !== "") {
                         const totalSemanas = (parseInt(semFin) - parseInt(semInicia)) + 1;
 
                         materiasParaGuardar.push({
@@ -482,16 +502,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         contenedorLista.innerHTML = ''; 
         let hayResultados = false;
+        let arrayPeriodos = Object.entries(datos);
 
-        for (const [periodo, carreras] of Object.entries(datos)) {
+        arrayPeriodos.sort((a, b) => {
+            const idPeriodoA = parseInt(a[1][0].cve_periodo) || 0;
+            const idPeriodoB = parseInt(b[1][0].cve_periodo) || 0;
+            return idPeriodoB - idPeriodoA; 
+        });
+
+        for (const [periodo, carreras] of arrayPeriodos) {
             if (filtroBuscar && !periodo.toLowerCase().includes(filtroBuscar.toLowerCase())) continue;
-
+            
             hayResultados = true;
             const cantidadRegistros = carreras.length;
             const textoRegistro = cantidadRegistros === 1 ? "1 Registro" : `${cantidadRegistros} Registros`;
-
+            
             const divCard = document.createElement('div');
             divCard.className = 'card-periodo d-flex align-items-center justify-content-between shadow-sm';
+            
             divCard.innerHTML = `
                 <div class="d-flex align-items-center">
                     <div class="icono-periodo shadow-sm"><i class="fa-regular fa-calendar-days"></i></div>
@@ -513,12 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('vistaPeriodos').classList.add('d-none');
     document.getElementById('vistaDetallePeriodo').classList.remove('d-none');
     document.getElementById('tituloDetallePeriodo').innerHTML = `
-        <div class="alert alert-info nota-informativa">
-            <i class="fa-solid fa-info-circle"></i>
-            <span>
-                Nota: Si desea eliminar completamente una seriación registrada, contacte a Secretaría Académica y al Departamento de TI.
-            </span>
-        </div>
+        
         <i class="fa-regular fa-folder-open"></i> PERIODO: ${periodo}
     `;
     
@@ -528,18 +551,22 @@ document.addEventListener('DOMContentLoaded', () => {
     carreras.forEach(carrera => {
         const nombreUsuario = carrera.nombre_usuario ? carrera.nombre_usuario.toUpperCase() : 'SISTEMA';
         const fechaMod = carrera.fecha_formateada || 'Sin fecha';
+        const numGrado = carrera.grado || carrera.cve_grado || '';
+        const badgeGrado = numGrado ? `<span class="badge bg-secondary text-white ms-2" style="font-size: 0.8rem; font-weight: normal;">${numGrado}° Cuatrimestre</span>` : '';
 
         htmlCarreras += `
             <div class="tarjeta-registro-carrera d-flex justify-content-between align-items-center p-3 border rounded shadow-sm bg-white mb-2">
                 <div>
-                    <h6 class="fw-bold mb-1 text-dark">${carrera.nombre_carrera}</h6>
+                    <h6 class="fw-bold mb-1 text-dark d-flex align-items-center">
+                        ${carrera.nombre_carrera} ${badgeGrado}
+                    </h6>
                     <p class="mb-0 text-muted" style="font-size: 0.85rem;">
                         Actualizó: <span class="fw-bold text-secondary">${nombreUsuario}</span> el ${fechaMod}
                     </p>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-success btn-ver" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}">Ver</button>
-                    <button class="btn btn-sm btn-primary btn-editar" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}">Editar</button>
+                    <button class="btn btn-sm btn-success btn-ver" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}" data-nombre="${carrera.nombre_carrera}">Ver</button>
+                    <button class="btn btn-sm btn-primary btn-editar" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}">Editar</button>
                 </div>
             </div>
         `;
@@ -555,8 +582,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = btn.getAttribute('data-periodo');
                 const c = btn.getAttribute('data-carrera');
                 const pl = btn.getAttribute('data-plan');
-                await abrirModalVerSeriacion(p, c, pl);
-            } 
+                const g = btn.getAttribute('data-grado'); 
+                const nombreCarrera = btn.getAttribute('data-nombre');
+                
+                await abrirModalVerSeriacion(p, c, pl, g, nombreCarrera); 
+            }
             
       
             else if (e.target.classList.contains('btn-editar')) {
@@ -566,39 +596,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     const p = btn.getAttribute('data-periodo');
                     const c = btn.getAttribute('data-carrera');
                     const pl = btn.getAttribute('data-plan');
+                    const g = btn.getAttribute('data-grado');
                     
 
-                    window.location.href = `seriacion_mod_mixta.jsp?modo=editar&periodo=${p}&carrera=${c}&plan=${pl}`;
+                    window.location.href = `seriacion_mod_mixta.jsp?modo=editar&periodo=${p}&carrera=${c}&plan=${pl}&grado=${g}`;
                 }
             }
         });
     }
 
 
-    async function abrirModalVerSeriacion(periodo, carrera, plan) {
-        try {
-            const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}`);
-            const res = await resp.json();
+
+    async function abrirModalVerSeriacion(periodo, carrera, plan, grado, nombreCarrera) {
+    try {
+
+        const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}&grado=${grado}`);
+        const res = await resp.json();
 
             if (res.success) {
                 const materias = res.data;
-
                 if (!materias || materias.length === 0) {
                     alert("No hay datos guardados para esta carrera.");
                     return;
                 }
 
                 const formatearFecha = (fechaSTR) => {
-                    if (!fechaSTR) return 'N/A';
                     const fechaLimpia = String(fechaSTR).substring(0, 10);
                     const partes = fechaLimpia.split('-');
                     if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
                     return fechaLimpia;
                 };
-
+                
                 document.getElementById('modalVerUsuario').textContent = ` ${materias[0].usuario.toUpperCase()}`;
                 document.getElementById('modalVerFecha').textContent = ` el ${materias[0].fechaAct}`;
-        
+                
+                // ==========================================
+                // ACTUALIZAR EL TÍTULO DEL MODAL
+                // ==========================================
+                const grado = materias[0].grado || ''; 
+                const tituloModal = document.querySelector('#modalVerSeriacion .modal-title');
+                
+                if (tituloModal) {
+                    tituloModal.textContent = `${nombreCarrera.toUpperCase()} - Cuatrimestre ${grado}`;
+                }
+                
                 let htmlTabla = '';
                 materias.forEach(m => {
                     htmlTabla += `<tr>
@@ -670,9 +711,13 @@ setTimeout(() => {
         const periodoEdit = parametrosEdicion.get('periodo');
         const carreraEdit = parametrosEdicion.get('carrera');
         const planEdit = parametrosEdicion.get('plan');
+        const gradoEdit = parametrosEdicion.get('grado');
+
+        llenarFiltrosEnSilencio(periodoEdit, carreraEdit, planEdit);
+        
         cargarDatosParaEditar(periodoEdit, carreraEdit, planEdit);
     }
-}, 500); 
+}, 500);
 
 async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
     try {
@@ -707,33 +752,27 @@ async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
 
 async function cargarDatosParaEditar(periodo, carrera, plan) {
     try {
-       
         const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}`);
         const res = await resp.json();
 
         if (res.success && res.data && res.data.length > 0) {
             const materias = res.data;
-           
-
             const tbodyMaterias = document.getElementById('tbodyMaterias') || document.querySelector('.tbodyMaterias');
             const contenedorTabla = document.getElementById('contenedorTabla');
             const contenedorGrafica = document.getElementById('contenedorGrafica');
-            const badgeTotal = document.getElementById('badgeTotal');
             const tituloGrafica = document.getElementById('tituloGrafica'); 
 
             if (!tbodyMaterias) return;
 
-           
             const gradoMat = materias[0].grado;
             if (typeof selGrado !== 'undefined' && selGrado && gradoMat) {
-                selGrado.innerHTML = ''; 
+                selGrado.innerHTML = '';
                 selGrado.add(new Option(`${gradoMat}° Cuatrimestre`, gradoMat));
                 selGrado.value = gradoMat;
-                selGrado.disabled = true; 
+                selGrado.disabled = true;
             }
 
             tbodyMaterias.innerHTML = '';
-
             const formatFechaInput = (fechaDDMM) => {
                 if (!fechaDDMM || fechaDDMM === 'N/A') return '';
                 const partes = fechaDDMM.split('/');
@@ -754,23 +793,17 @@ async function cargarDatosParaEditar(periodo, carrera, plan) {
                         </select>
                     </td>
                     <td>
-                        <input type="text" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" 
-                        class="form-control form-control-sm text-center calculo-duracion mx-auto" 
-                        style="width: 70px;" data-cve="${cve}" id="inicio_${cve}" value="${mat.inicio}">
+                        <input type="text" autocomplete="off" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control form-control-sm text-center calculo-duracion mx-auto" style="width: 70px;" data-cve="${cve}" id="inicio_${cve}" value="${mat.inicio}">
                     </td>
                     <td>
-                        <input type="text" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" 
-                        class="form-control form-control-sm text-center calculo-duracion mx-auto" 
-                        style="width: 70px;" data-cve="${cve}" id="fin_${cve}" value="${mat.fin}">
+                        <input type="text" autocomplete="off" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control form-control-sm text-center calculo-duracion mx-auto" style="width: 70px;" data-cve="${cve}" id="fin_${cve}" value="${mat.fin}">
                     </td>
                     <td>
-                        <input type="text" class="form-control form-control-sm text-center mx-auto input-duracion-readonly" 
-                        style="width: 70px;" readonly id="duracion_${cve}" value="${mat.duracion}">
+                        <input type="text" autocomplete="off" class="form-control form-control-sm text-center mx-auto input-duracion-readonly" style="width: 70px;" readonly id="duracion_${cve}" value="${mat.duracion}">
                     </td>
-                    <td><input type="date" class="form-control form-control-sm text-center text-muted" id="fechaInicio_${cve}" value="${formatFechaInput(mat.fechaIni)}"></td>
-                    <td><input type="date" class="form-control form-control-sm text-center text-muted" id="fechaFin_${cve}" value="${formatFechaInput(mat.fechaFin)}"></td>
+                    <td><input type="date" autocomplete="off" class="form-control form-control-sm text-center text-muted" id="fechaInicio_${cve}" value="${formatFechaInput(mat.fechaIni)}"></td>
+                    <td><input type="date" autocomplete="off" class="form-control form-control-sm text-center text-muted" id="fechaFin_${cve}" value="${formatFechaInput(mat.fechaFin)}"></td>
                 `;
-                
                 tbodyMaterias.appendChild(tr);
 
                 setTimeout(() => {
@@ -782,27 +815,28 @@ async function cargarDatosParaEditar(periodo, carrera, plan) {
             if (contenedorTabla) contenedorTabla.classList.remove('d-none');
             if (contenedorGrafica) contenedorGrafica.classList.remove('d-none');
             setTimeout(() => {
-                const etiquetaContador = (typeof badgeTotal !== 'undefined' ? badgeTotal : null) 
-                                      || document.getElementById('badgeTotal') 
-                                      || document.querySelector('.badge:last-of-type') 
-                                      || document.querySelector('span:contains("materias")');
+                const etiquetaContador = document.getElementById('badgeTotalMaterias') || document.querySelector('.badge:last-of-type') || document.querySelector('span:contains("materias")');
 
                 if (etiquetaContador) {
                     etiquetaContador.textContent = `${materias.length} materia${materias.length !== 1 ? 's' : ''}`;
-                    console.log("✅ Contador actualizado con éxito a:", materias.length);
-                } else {
-                   
                 }
                 
-                const tituloGrafica = document.getElementById('tituloGrafica') || document.querySelector('.titulo-grafica');
                 if (tituloGrafica) {
-                    tituloGrafica.textContent = `MODO EDICIÓN (Cuatrimestre ${gradoMat})`;
+                    const txtPeriodo = selPeriodo.options[selPeriodo.selectedIndex] ? selPeriodo.options[selPeriodo.selectedIndex].text : periodo;
+                    const txtCarrera = selCarrera.options[selCarrera.selectedIndex] ? selCarrera.options[selCarrera.selectedIndex].text.split(' / ')[0] : carrera;
+                    const txtGrado = `${gradoMat}° Cuatrimestre`;
+                    
+                    tituloGrafica.textContent = `PERIODO: ${txtPeriodo} - ${txtCarrera} - ${txtGrado}`;
+                }
+
+                if (typeof actualizarGrafica === 'function') {
+                    actualizarGrafica();
+                }
+                
+                if (contenedorTabla) {
+                    contenedorTabla.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 1000);
-
-            if (typeof actualizarGrafica === 'function') {
-                setTimeout(actualizarGrafica, 1100); 
-            }
 
         } else {
             alert("No se encontraron datos para editar");
