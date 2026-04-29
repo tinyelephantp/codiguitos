@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fechas de Captura Prototipo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 0.85rem; margin: 0; padding: 20px 0; }
+        .sistema-container { max-width: 1050px; margin: 0 auto; background-color: white; padding: 30px; box-shadow: 0 0 20px rgba(0,0,0,0.05); min-height: 100vh; border-radius: 8px; }
+
+        .encabezado-titulo { background-color: #002b5e; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 1.2rem; padding: 10px 0; text-transform: uppercase; }
+        .encabezado-usuario { background-color: #00a680; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-weight: normal; font-size: 1rem; padding: 6px 0; text-transform: uppercase; }
+
+        .accordion-button:not(.collapsed) { background-color: #e8f4f2; color: #008f82; font-weight: bold; }
+        .tarjeta-registro { background-color: #f8f9fa; border-left: 4px solid #00a680; padding: 15px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;}
+        .tarjeta-info { flex-grow: 1; }
+        .tarjeta-titulo { font-weight: bold; color: #212529; font-size: 0.95rem; margin-bottom: 4px; }
+        .tarjeta-autor { font-size: 0.8rem; color: #6c757d; font-style: italic; }
+
+        .grafica-container { border: 1px solid #dee2e6; border-radius: 8px; padding: 25px; background-color: #fcfcfc; display: none; }
+        .grid-semanas { display: grid; gap: 4px; margin-bottom: 15px; }
+        .header-semana { background-color: #008f82; color: white; font-weight: bold; text-align: center; padding: 6px 0; border-radius: 3px; font-size: 0.9rem; }
+        .fila-materia { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; margin-bottom: 6px; }
+        
+        .barra-materia {
+            border-radius: 4px; color: white; font-weight: bold; font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center; 
+            padding: 4px 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            overflow: hidden; white-space: nowrap; cursor: pointer;
+            transition: all 0.2s ease; border: 2px solid transparent; text-overflow: ellipsis;
+        }
+        .barra-materia:hover { transform: scale(1.01); filter: brightness(1.1); }
+        .bg-virtual { background-color: #8cc63f !important; } 
+        .bg-semi { background-color: #f7931e !important; }    
+
+        .materia-seleccionada {
+            border: 3px solid #002b5e !important; 
+            box-shadow: 0 0 8px rgba(0,43,94,0.5);
+            transform: scale(1.02);
+            z-index: 10;
+        }
+
+        #seccionFechas { display: none; margin-top: 30px; }
+        .tabla-evaluaciones th { background-color: #002b5e !important; color: white !important; vertical-align: middle; font-size: 0.75rem; border-color: #001a38; text-transform: uppercase; }
+        .tabla-evaluaciones td { vertical-align: middle; font-weight: 500; font-size: 0.8rem; }
+        .input-fecha { font-size: 0.75rem; text-align: center; max-width: 120px; margin: 0 auto; padding: 4px; }
+
+        .bloque-fecha-autor {
+            background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 15px; min-width: 220px; text-align: center;
+        }
+        .fecha-resaltada { color: #1a73e8; font-size: 1.4rem; font-weight: 900; line-height: 1.1; margin: 5px 0; }
+        .mes-resaltado { color: #555; font-size: 0.85rem; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        .separador-fecha { width: 100%; height: 1px; background-color: #e0e0e0; margin: 12px 0; }
+        
+        /* Globo Leyenda */
+        .globo-leyenda {
+            display: inline-block; padding: 12px 25px; border-radius: 50px;
+            background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); font-weight: 600; font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sistema-container">
+
+    <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="mb-4">
+        <tr align="center"><td class="encabezado-titulo">FECHAS DE CAPTURA DE EVALUACIONES - SECRETARÍA ACADÉMICA</td></tr>
+        <tr align="center"><td class="encabezado-usuario">ANA PAOLA CABELLO VEGA</td></tr>
+    </table>
+
+    <div id="vistaSeleccion" class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0" style="color: #002b5e;">Seleccione una Seriación Guardada</h5>
+        </div>
+        
+        <div class="accordion" id="acordeonPeriodos">
+            <div id="mensajeVacio" class="text-center text-muted py-5" style="display: none;">
+                No hay seriaciones registradas todavía. Ve al módulo de Seriación para crear una.
+            </div>
+        </div>
+    </div>
+
+    <div id="vistaCaptura" style="display: none;">
+
+        <div class="mb-3">
+            <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" onclick="volverALista()">← Volver a la lista</button>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" id="tituloSeccion">
+            <h6 class="fw-bold mb-0 text-start" style="color: #4a4a4a;" id="textoPeriodoCaptura"></h6>
+            <button class="btn btn-sm text-white fw-bold shadow-sm px-4 py-2 ms-3" style="background-color: #002b5e; white-space: nowrap;" onclick="mostrarResumen()">Ver Resumen de Fechas</button>
+        </div>
+
+        <div class="grafica-container shadow-sm" id="graficaContenedor">
+            <div class="text-center mb-4">
+                <h6 class="fw-bold text-uppercase mb-0" style="color: #008f82;" id="tituloGrafica">SERIACIÓN DE MATERIAS</h6>
+                <small class="text-muted">Haz clic en una materia para programar sus fechas de evaluación. Se seleccionarán automáticamente todas las materias con la misma duración (semana de inicio y fin).</small>
+            </div>
+
+            <div id="ganttArea">
+                <div class="grid-semanas" id="gridHeader"></div>
+                <div id="gridBody"></div>
+            </div>
+
+            <div class="d-flex justify-content-center gap-4 mt-4 pt-3 border-top small fw-bold text-muted">
+                <span class="d-flex align-items-center gap-1"><div style="width:12px; height:12px; background:#f7931e;"></div> Asignaturas Semipresenciales</span>
+                <span class="d-flex align-items-center gap-1"><div style="width:12px; height:12px; background:#8cc63f;"></div> Asignaturas Virtuales</span>
+            </div>
+        </div>
+
+        <div id="seccionFechas">
+            
+            <h6 class="fw-bold mb-3 mt-4" style="color: #002b5e;">ASIGNANDO FECHAS PARA (<span id="lblSemanas"></span>):</h6>
+
+            <div class="shadow-sm d-flex align-items-center gap-3" style="background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+                <div class="fs-4 lh-1 fw-bold text-warning" style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #ffc107;">!</div>
+                <div class="flex-grow-1">
+                    <strong class="text-dark" style="font-size: 0.95rem;">Asignaturas a Evaluar:</strong>
+                    <div id="listaMateriasAsignar" class="d-flex flex-wrap gap-2 mt-2"></div>
+                </div>
+            </div>
+
+            <div class="table-responsive shadow-sm rounded mb-4">
+                <table class="table table-bordered text-center tabla-evaluaciones mb-0 align-middle" id="tablaFechas">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">EVALUACIÓN</th>
+                            <th colspan="2">PERIODO DE CAPTURA</th>
+                            <th colspan="2">ACCIONES</th>
+                        </tr>
+                        <tr>
+                            <th>FECHA INICIO</th>
+                            <th>FECHA FIN</th>
+                            <th>CONFIRMAR</th>
+                            <th>EDITAR / ELIMINAR</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        <tr>
+                            <td class="text-start ps-3 fw-bold">PRIMER CORTE</td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><button class="btn btn-sm btn-outline-primary fw-bold px-3 btn-guardar">Guardar</button></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-editar" title="Editar" disabled>✏️</button>
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-eliminar" title="Eliminar">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr style="background-color: #f8f9fa;">
+                            <td class="text-start ps-3 fw-bold">SEGUNDO CORTE</td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><button class="btn btn-sm btn-outline-primary fw-bold px-3 btn-guardar">Guardar</button></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-editar" title="Editar" disabled>✏️</button>
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-eliminar" title="Eliminar">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-start ps-3 fw-bold">TERCER CORTE</td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><button class="btn btn-sm btn-outline-primary fw-bold px-3 btn-guardar">Guardar</button></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-editar" title="Editar" disabled>✏️</button>
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-eliminar" title="Eliminar">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr style="background-color: #f8f9fa;">
+                            <td class="text-start ps-3 fw-bold">EVALUACIÓN COMPLEMENTARIA</td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><button class="btn btn-sm btn-outline-primary fw-bold px-3 btn-guardar">Guardar</button></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-editar" title="Editar" disabled>✏️</button>
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-eliminar" title="Eliminar">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-start ps-3 fw-bold">EVAL. ACCIÓN ESPECIAL DE REGULARIZACIÓN</td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><button class="btn btn-sm btn-outline-primary fw-bold px-3 btn-guardar">Guardar</button></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-editar" title="Editar" disabled>✏️</button>
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-eliminar" title="Eliminar">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr style="background-color: #f8f9fa;">
+                            <td class="text-start ps-3 fw-bold">EVALUACIÓN DE ÚLTIMA ASIGNATURA</td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><input type="date" class="form-control input-fecha"></td>
+                            <td><button class="btn btn-sm btn-outline-primary fw-bold px-3 btn-guardar">Guardar</button></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-editar" title="Editar" disabled>✏️</button>
+                                    <button class="btn btn-sm btn-light border shadow-sm btn-eliminar" title="Eliminar">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="vistaResumen" style="display: none;" class="mb-5">
+        
+        <div class="text-center mb-5 mt-4">
+            <h4 class="fw-bold mb-4 text-uppercase" style="color: #002b5e; letter-spacing: 1px;">RESUMEN DE FECHAS PROGRAMADAS</h4>
+            <div class="globo-leyenda">
+                ✓ Las siguientes evaluaciones han sido registradas exitosamente.
+            </div>
+        </div>
+
+        <div class="shadow-sm rounded p-3 mb-4 text-center border" style="background-color: #fdfdfd;">
+            <div id="resumenContexto" class="fw-bold text-dark" style="font-size: 0.95rem;"></div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-11" id="contenedorResumenFechas">
+                </div>
+        </div>
+
+        <div class="text-center mt-5 pt-3 border-top">
+            <button class="btn text-white px-5 py-2 fw-bold shadow-sm" style="background-color: #00a680; font-size: 1rem;" onclick="volverACaptura()">Volver a Edición de Fechas</button>
+        </div>
+    </div>
+
+</div> 
+
+<script>
+    const USUARIO_ACTUAL = "ANA PAOLA CABELLO VEGA"; 
+    let indiceRegistroActual = null; 
+    let bloqueActualKey = null;      
+
+    document.addEventListener('DOMContentLoaded', function() {
+        renderizarListaRegistros();
+    });
+
+    function renderizarListaRegistros() {
+        const guardadas = JSON.parse(localStorage.getItem('seriacionesPrototipo')) || [];
+        const contenedorAcordeon = document.getElementById('acordeonPeriodos');
+        const mensajeVacio = document.getElementById('mensajeVacio');
+
+        if (guardadas.length === 0) {
+            contenedorAcordeon.innerHTML = '';
+            mensajeVacio.style.display = 'block';
+            return;
+        }
+        mensajeVacio.style.display = 'none';
+
+        guardadas.forEach((reg, i) => reg.indiceOriginal = i);
+
+        const registrosPorPeriodo = {};
+        guardadas.forEach(registro => {
+            if (!registrosPorPeriodo[registro.periodo]) { registrosPorPeriodo[registro.periodo] = []; }
+            registrosPorPeriodo[registro.periodo].push(registro); 
+        });
+
+        let htmlAcordeon = '';
+        let indexColapso = 0;
+
+        const mesesDic = {
+            "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+            "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12
+        };
+
+        const periodosOrdenados = Object.keys(registrosPorPeriodo).sort((a, b) => {
+            const calcularValor = (periodoStr) => {
+                const partes = periodoStr.toLowerCase().trim().split(' ');
+                if(partes.length < 2) return 0;
+                
+                const anio = parseInt(partes[1]);
+                const mesInicio = partes[0].split('-')[0]; 
+                const valorMes = mesesDic[mesInicio] || 0;
+                
+                return (anio * 100) + valorMes; 
+            };
+            return calcularValor(b) - calcularValor(a); 
+        });
+
+        for (const periodo of periodosOrdenados) {
+            const registrosDelPeriodo = registrosPorPeriodo[periodo];
+            const idCollapse = `collapse_${indexColapso}`;
+            const idHeading = `heading_${indexColapso}`;
+
+            let htmlTarjetas = '';
+            registrosDelPeriodo.reverse().forEach(registro => {
+                htmlTarjetas += `
+                    <div class="tarjeta-registro shadow-sm">
+                        <div class="tarjeta-info">
+                            <div class="tarjeta-titulo">
+                                ${registro.carrera} <span class="text-muted mx-1">|</span> 
+                                Cuatrimestre ${registro.grado} <span class="text-muted mx-1">|</span>
+                                ${registro.plan}
+                            </div>
+                            <div class="tarjeta-autor">Actualizó: ${registro.autor} el ${registro.fecha}</div>
+                        </div>
+                        <div class="ms-3">
+                            <button class="btn btn-sm text-white fw-bold shadow-sm" style="background-color: #002b5e;" onclick="cargarSeriacion(${registro.indiceOriginal})">
+                                Configurar Fechas
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            htmlAcordeon += `
+                <div class="d-flex align-items-start mb-3">
+                    <div class="accordion flex-grow-1 shadow-sm rounded">
+                        <div class="accordion-item border rounded">
+                            <h2 class="accordion-header" id="${idHeading}">
+                                <button class="accordion-button collapsed shadow-none py-3 rounded" type="button" data-bs-toggle="collapse" data-bs-target="#${idCollapse}">
+                                    <strong class="me-2 text-dark">Periodo:</strong> <span class="text-secondary ms-1">${periodo}</span>
+                                </button>
+                            </h2>
+                            <div id="${idCollapse}" class="accordion-collapse collapse">
+                                <div class="accordion-body bg-light border-top p-3">${htmlTarjetas}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ms-3" style="margin-top: 12px;">
+                        <span class="badge shadow-sm" style="background-color: #002b5e; font-size: 0.85rem; padding: 8px 14px; border-radius: 6px;">
+                            ${registrosDelPeriodo.length} Registro(s)
+                        </span>
+                    </div>
+                </div>
+            `;
+            indexColapso++;
+        }
+        contenedorAcordeon.innerHTML = htmlAcordeon;
+    }
+
+    window.cargarSeriacion = function(indice) {
+        indiceRegistroActual = indice; 
+        const guardadas = JSON.parse(localStorage.getItem('seriacionesPrototipo')) || [];
+        const registro = guardadas[indice];
+        if(!registro) return;
+
+        document.getElementById('vistaSeleccion').style.display = 'none';
+        document.getElementById('vistaResumen').style.display = 'none';
+        document.getElementById('vistaCaptura').style.display = 'block';
+        document.getElementById('seccionFechas').style.display = 'none';
+
+        document.getElementById('textoPeriodoCaptura').innerHTML = `<span class="text-muted fw-normal">PERIODO DE CAPTURA:</span> ${registro.periodo.toUpperCase()}`;
+        document.getElementById('tituloGrafica').innerText = `SERIACIÓN DE MATERIAS DE ${registro.carrera.toUpperCase()}, GRADO ${registro.grado}`;
+        document.getElementById('graficaContenedor').style.display = 'block';
+        
+        renderizarGrafica(registro.materias);
+    }
+
+    window.volverALista = function() {
+        document.getElementById('vistaCaptura').style.display = 'none';
+        document.getElementById('vistaSeleccion').style.display = 'block';
+    }
+
+    function renderizarGrafica(materiasObj) {
+        const gridHeader = document.getElementById('gridHeader');
+        const gridBody = document.getElementById('gridBody');
+        
+        if(!materiasObj || Object.keys(materiasObj).length === 0) {
+            gridHeader.innerHTML = '';
+            gridBody.innerHTML = '<div class="alert alert-warning text-center mt-3">No hay materias configuradas en esta seriación.</div>';
+            return;
+        }
+
+        const arrayMaterias = Object.values(materiasObj);
+        let maxSemana = 15; 
+        arrayMaterias.forEach(mat => { if (parseInt(mat.fin) > maxSemana) maxSemana = parseInt(mat.fin); });
+
+        gridHeader.style.gridTemplateColumns = `repeat(${maxSemana}, 1fr)`;
+        gridHeader.innerHTML = '';
+        for (let i = 1; i <= maxSemana; i++) { gridHeader.innerHTML += `<div class="header-semana">${i}</div>`; }
+
+        gridBody.innerHTML = '';
+        arrayMaterias.forEach(mat => {
+            const colorClass = mat.mod === 'virtual' ? 'bg-virtual' : 'bg-semi';
+            const estiloUbicacion = `grid-column: ${mat.inicio} / ${parseInt(mat.fin) + 1};`;
+
+            gridBody.innerHTML += `
+                <div class="fila-materia" style="grid-template-columns: repeat(${maxSemana}, 1fr);">
+                    <div class="barra-materia ${colorClass}" style="${estiloUbicacion}" 
+                         data-inicio="${mat.inicio}" data-fin="${mat.fin}" data-nombre="${mat.nombre}"
+                         onclick="seleccionarBloque(${mat.inicio}, ${mat.fin})">
+                        <span>${mat.nombre}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    window.seleccionarBloque = function(inicio, fin) {
+        bloqueActualKey = `${inicio}_${fin}`; 
+        const barras = document.querySelectorAll('.barra-materia');
+        const listaMaterias = document.getElementById('listaMateriasAsignar');
+        let materiasAfectadas = [];
+
+        barras.forEach(barra => {
+            const bInicio = parseInt(barra.dataset.inicio);
+            const bFin = parseInt(barra.dataset.fin); 
+            
+            if(bInicio === inicio && bFin === fin) {
+                barra.classList.add('materia-seleccionada');
+                materiasAfectadas.push(barra.dataset.nombre);
+            } else {
+                barra.classList.remove('materia-seleccionada');
+            }
+        });
+
+        document.getElementById('seccionFechas').style.display = 'block';
+        document.getElementById('lblSemanas').innerText = `SEMANAS ${inicio} A ${fin}`;
+        
+        listaMaterias.innerHTML = '';
+        materiasAfectadas.forEach(mat => {
+            listaMaterias.innerHTML += `
+                <span class="badge rounded-pill text-dark shadow-sm" style="background-color: #ffdfa3; border: 1px solid #ffc107; font-size: 0.85rem; padding: 6px 15px;">
+                    ${mat}
+                </span>`;
+        });
+
+        cargarTablaFechas(); 
+        document.getElementById('seccionFechas').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function cargarTablaFechas() {
+        const guardadas = JSON.parse(localStorage.getItem('seriacionesPrototipo')) || [];
+        const registro = guardadas[indiceRegistroActual];
+        
+        const fechasDelBloque = registro.fechasCaptura && registro.fechasCaptura[bloqueActualKey] ? registro.fechasCaptura[bloqueActualKey] : {};
+
+        document.querySelectorAll('.tabla-evaluaciones tbody tr').forEach(fila => {
+            const nombreEval = fila.querySelector('td:first-child').innerText.trim();
+            const inputs = fila.querySelectorAll('.input-fecha');
+            const btnGuardar = fila.querySelector('.btn-guardar');
+            const btnEditar = fila.querySelector('.btn-editar');
+
+            const datosGuardados = fechasDelBloque[nombreEval];
+
+            if (datosGuardados) {
+                inputs[0].value = datosGuardados.inicio;
+                inputs[1].value = datosGuardados.fin;
+                
+                inputs.forEach(input => input.disabled = true);
+                btnGuardar.innerText = "✓ Guardado";
+                btnGuardar.classList.replace('btn-outline-primary', 'btn-success');
+                btnGuardar.disabled = true;
+                btnEditar.disabled = false;
+            } else {
+                inputs.forEach(input => { input.value = ''; input.disabled = false; });
+                
+                btnGuardar.innerText = "Guardar";
+                btnGuardar.classList.replace('btn-success', 'btn-outline-primary');
+                btnGuardar.disabled = false;
+                btnEditar.disabled = true;
+            }
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        
+        if (e.target.closest('.btn-guardar')) {
+            const btn = e.target.closest('.btn-guardar');
+            const fila = btn.closest('tr');
+            const inputs = fila.querySelectorAll('.input-fecha');
+            const nombreEval = fila.querySelector('td:first-child').innerText.trim();
+            
+            if(!inputs[0].value || !inputs[1].value) {
+                alert("Por favor ingrese ambas fechas antes de guardar.");
+                return;
+            }
+
+            const hoy = new Date();
+            const dia = String(hoy.getDate()).padStart(2, '0');
+            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            const fechaInvisible = `${dia}/${mes}/${hoy.getFullYear()}`;
+
+            inputs.forEach(input => input.disabled = true);
+            btn.innerText = "✓ Guardado";
+            btn.classList.replace('btn-outline-primary', 'btn-success');
+            btn.disabled = true;
+            fila.querySelector('.btn-editar').disabled = false;
+
+            const guardadas = JSON.parse(localStorage.getItem('seriacionesPrototipo')) || [];
+            const registro = guardadas[indiceRegistroActual];
+            
+            if(!registro.fechasCaptura) registro.fechasCaptura = {};
+            if(!registro.fechasCaptura[bloqueActualKey]) registro.fechasCaptura[bloqueActualKey] = {};
+            
+            registro.fechasCaptura[bloqueActualKey][nombreEval] = {
+                inicio: inputs[0].value, 
+                fin: inputs[1].value,
+                persona: USUARIO_ACTUAL,
+                fechaAct: fechaInvisible
+            };
+            localStorage.setItem('seriacionesPrototipo', JSON.stringify(guardadas));
+            
+            alert("La fecha fue capturada correctamente.");
+        }
+
+        if (e.target.closest('.btn-editar')) {
+            const btn = e.target.closest('.btn-editar');
+            const fila = btn.closest('tr');
+            
+            fila.querySelectorAll('.input-fecha').forEach(input => input.disabled = false);
+            const btnGuardar = fila.querySelector('.btn-guardar');
+            btnGuardar.innerText = "Guardar";
+            btnGuardar.classList.replace('btn-success', 'btn-outline-primary');
+            btnGuardar.disabled = false;
+            btn.disabled = true;
+        }
+
+        if (e.target.closest('.btn-eliminar')) {
+            const btn = e.target.closest('.btn-eliminar');
+            const fila = btn.closest('tr');
+            const nombreEval = fila.querySelector('td:first-child').innerText.trim();
+            
+            if(confirm("¿Deseas limpiar y eliminar las fechas de esta evaluación?")) {
+                fila.querySelectorAll('.input-fecha').forEach(input => { input.value = ''; input.disabled = false; });
+                
+                const btnGuardar = fila.querySelector('.btn-guardar');
+                btnGuardar.innerText = "Guardar";
+                btnGuardar.classList.replace('btn-success', 'btn-outline-primary');
+                btnGuardar.disabled = false;
+                fila.querySelector('.btn-editar').disabled = true;
+
+                const guardadas = JSON.parse(localStorage.getItem('seriacionesPrototipo')) || [];
+                const registro = guardadas[indiceRegistroActual];
+                if (registro && registro.fechasCaptura && registro.fechasCaptura[bloqueActualKey]) {
+                    delete registro.fechasCaptura[bloqueActualKey][nombreEval];
+                    localStorage.setItem('seriacionesPrototipo', JSON.stringify(guardadas));
+                }
+            }
+        }
+    });
+
+    window.mostrarResumen = function() {
+        document.getElementById('vistaCaptura').style.display = 'none';
+        document.getElementById('vistaResumen').style.display = 'block';
+
+        const guardadas = JSON.parse(localStorage.getItem('seriacionesPrototipo')) || [];
+        const registro = guardadas[indiceRegistroActual];
+
+        document.getElementById('resumenContexto').innerHTML = `
+            <strong>Programa Educativo:</strong> <span class="text-primary">${registro.carrera}</span> <span class="text-muted mx-3">|</span>
+            <strong>Periodo:</strong> <span class="text-primary">${registro.periodo}</span> <span class="text-muted mx-3">|</span>
+            <strong>Plan de Estudios:</strong> <span class="text-primary">${registro.plan}</span> <span class="text-muted mx-3">|</span>
+            <strong>Grado:</strong> <span class="text-primary">${registro.grado}</span>
+        `;
+
+        const contenedorResumen = document.getElementById('contenedorResumenFechas');
+        contenedorResumen.innerHTML = '';
+        
+        const agrupacion = {}; 
+        let hayFechas = false;
+
+        if (registro && registro.fechasCaptura) {
+            for (const bloqueKey in registro.fechasCaptura) {
+                const [semInicio, semFin] = bloqueKey.split('_').map(Number); 
+                const materiasDeSemanaArray = Object.values(registro.materias).filter(mat => parseInt(mat.inicio) === semInicio && parseInt(mat.fin) === semFin);
+                
+                const evaluaciones = registro.fechasCaptura[bloqueKey];
+
+                for (const evalName in evaluaciones) {
+                    hayFechas = true;
+                    const datos = evaluaciones[evalName];
+                    const groupKey = `${datos.inicio}|${datos.fin}|${datos.persona}|${datos.fechaAct}`;
+
+                    if (!agrupacion[evalName]) agrupacion[evalName] = {};
+                    if (!agrupacion[evalName][groupKey]) {
+                        agrupacion[evalName][groupKey] = {
+                            inicio: datos.inicio,
+                            fin: datos.fin,
+                            persona: datos.persona,
+                            fechaAct: datos.fechaAct,
+                            materias: []
+                        };
+                    }
+
+                    materiasDeSemanaArray.forEach(m => {
+                        const existe = agrupacion[evalName][groupKey].materias.some(ex => ex.nombre === m.nombre);
+                        if (!existe) agrupacion[evalName][groupKey].materias.push(m);
+                    });
+                }
+            }
+        }
+
+        if (!hayFechas) {
+            contenedorResumen.innerHTML = '<div class="alert alert-info text-center shadow-sm">No hay fechas de evaluación registradas aún para esta seriación.</div>';
+            return;
+        }
+
+        const nombresMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        
+        let htmlAcordeonResumen = '<div class="accordion" id="acordeonResumenAgrupado">';
+        let evalIndex = 0;
+
+        for (const evalName in agrupacion) {
+            const collapseId = `collapse_resumen_${evalIndex}`;
+            const headingId = `heading_resumen_${evalIndex}`;
+
+            let htmlSeccion = `
+                <div class="accordion-item mb-4 shadow-sm border rounded" style="overflow: hidden;">
+                    <h2 class="accordion-header" id="${headingId}">
+                        <button class="accordion-button collapsed shadow-none py-3" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" style="background-color: #ffffff;">
+                            <span class="me-3 text-warning fs-4" style="line-height: 0;">•</span>
+                            <span class="fw-bold text-uppercase" style="color: #002b5e; font-size: 1.05rem; letter-spacing: 0.5px;">${evalName}</span>
+                        </button>
+                    </h2>
+                    <div id="${collapseId}" class="accordion-collapse collapse">
+                        <div class="accordion-body d-flex flex-column gap-3 border-top" style="background-color: #fafbfc;">
+            `;
+
+            const gruposOrdenados = Object.values(agrupacion[evalName]).sort((a, b) => {
+                const fechaA = new Date(a.inicio + 'T00:00:00');
+                const fechaB = new Date(b.inicio + 'T00:00:00');
+                return fechaA - fechaB; 
+            });
+
+            gruposOrdenados.forEach(grupo => {
+                const dInicio = new Date(grupo.inicio + 'T00:00:00');
+                const dFin = new Date(grupo.fin + 'T00:00:00');
+                const mesBox = dInicio.getMonth() === dFin.getMonth() ? nombresMeses[dInicio.getMonth()] : `${nombresMeses[dInicio.getMonth()]} - ${nombresMeses[dFin.getMonth()]}`;
+
+                let listaMateriasHTML = '<div class="d-flex flex-column gap-2 mt-2">';
+                grupo.materias.forEach(mat => {
+                    const isVirtual = mat.mod === 'virtual';
+                    const bgColor = isVirtual ? 'rgba(140, 198, 63, 0.15)' : 'rgba(247, 147, 30, 0.15)';
+                    const borderColor = isVirtual ? '#8cc63f' : '#f7931e';
+                    
+                    listaMateriasHTML += `
+                        <div style="background-color: ${bgColor}; border-left: 4px solid ${borderColor}; padding: 8px 15px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; color: #4a4a4a;">
+                            ${mat.nombre}
+                        </div>
+                    `;
+                });
+                listaMateriasHTML += '</div>';
+
+                htmlSeccion += `
+                    <div class="d-flex gap-4 p-3 bg-white rounded shadow-sm border">
+                        <div class="bloque-fecha-autor">
+                            <div class="mes-resaltado">${mesBox} ${dInicio.getFullYear()}</div>
+                            <div class="fecha-resaltada">${dInicio.getDate()} al ${dFin.getDate()}</div>
+                            <div class="separador-fecha"></div>
+                            <div class="small" style="color: #6c757d; line-height: 1.3;">
+                                Act. por:<br>
+                                <strong class="text-primary" style="font-size: 0.8rem;">${grupo.persona}</strong><br>
+                                el ${grupo.fechaAct}
+                            </div>
+                        </div>
+
+                        <div class="flex-grow-1">
+                            <p class="mb-1 text-muted small fw-bold text-uppercase">Asignaturas Programadas:</p>
+                            ${listaMateriasHTML}
+                        </div>
+                    </div>
+                `;
+            });
+
+            htmlSeccion += `</div></div></div>`;
+            htmlAcordeonResumen += htmlSeccion;
+            evalIndex++;
+        }
+
+        htmlAcordeonResumen += '</div>';
+        contenedorResumen.innerHTML = htmlAcordeonResumen;
+    };
+
+    window.volverACaptura = function() {
+        document.getElementById('vistaResumen').style.display = 'none';
+        document.getElementById('vistaCaptura').style.display = 'block';
+    };
+</script>
+
+</body>
+</html>
