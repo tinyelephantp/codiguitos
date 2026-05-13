@@ -57,10 +57,6 @@
                 <div id="historialMainContainer" class="mt-4">
                     <div id="vistaPeriodos" class="mx-auto">
                         <div class="input-group mb-3 shadow-sm" style="max-width: 300px;">
-                            <span class="input-group-text bg-white border-end-0"><i
-                                    class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                            <input type="text" id="inputBuscarPeriodo" class="form-control border-start-0 ps-0"
-                                placeholder="Buscar por nombre de periodo...">
                         </div>
 
                         <div id="listaCardsPeriodos" class="d-flex flex-column pe-2"
