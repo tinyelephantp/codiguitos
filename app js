@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (selGrado) {
         selGrado.addEventListener('change', async function () {
-            // limpiar y ocultar si el usuario regresó a "Seleccionar"
+
             if (!this.value || !contenedorTabla || !tbodyMaterias) {
                 if (contenedorTabla) contenedorTabla.classList.add('d-none');
                 if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
@@ -210,55 +210,53 @@ document.addEventListener('DOMContentLoaded', () => {
             const pl = selPlan.value;
             const g = this.value;
 
-            // =========================================================
-            //  6. VALIDACIÓN DE EXISTENCIA
-            // =========================================================
-            const params = new URLSearchParams(window.location.search);
-            const esEdicion = params.get('modo') === 'editar';
-
-            if (!esEdicion && p && c && pl && g) {
-                try {
-                    const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
-                    const res = await resp.json();
-
-                    if (res.existe) {
-                        alert('Ya existe una seriación registrada para este cuatrimestre. Revise los registros en el Historial.');
-                        this.value = "";
-                        if (contenedorTabla) contenedorTabla.classList.add('d-none');
-                        if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
-                        return; 
-                    }
-                } catch (err) {
-                    console.error("Error validando:", err);
-                    return; 
-                }
+    // =========================================================
+    //  6. VALIDACIÓN DE EXISTENCIA
+    // =========================================================
+    const params = new URLSearchParams(window.location.search);
+    const esEdicion = params.get('modo') === 'editar';
+    
+    if (!esEdicion && p && c && pl && g) {
+        try {
+            const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
+            const res = await resp.json();
+            
+            if (res.existe) {
+                alert('Ya existe una seriación registrada para este cuatrimestre. Revise los registros en el Historial.');
+                this.value = "";
+                if (contenedorTabla) contenedorTabla.classList.add('d-none');
+                if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
+                return;
             }
+        } catch (err) {
+            console.error("Error validando:", err);
+            return;
+        }
+    }
 
-            // =========================================================
-            // 7. DIBUJAR TABLA SI TODO OK
-            // =========================================================
-            const materias = await fetchFiltros('materias', {
-                cve_periodo: p,
-                cve_carrera: c,
-                cve_plan: pl,
-                cve_grado: g
-            });
-
-            tbodyMaterias.innerHTML = '';
-
+    // =========================================================
+    // 7. DIBUJAR TABLA SI TODO OK
+    // =========================================================
+    const materias = await fetchFiltros('materias', {
+        cve_periodo: p,
+        cve_carrera: c,
+        cve_plan: pl,
+        cve_grado: g
+    });
+    
+    tbodyMaterias.innerHTML = '';
+    
             if (materias.length > 0) {
                 const txtPeriodo = selPeriodo.options[selPeriodo.selectedIndex].text;
                 const txtCarrera = selCarrera.options[selCarrera.selectedIndex].text.split(' / ')[0];
                 const txtGrado = selGrado.options[selGrado.selectedIndex].text;
-              
+
                 if (tituloGrafica) tituloGrafica.textContent = `PERIODO: ${txtPeriodo} - ${txtCarrera} - ${txtGrado}`;
-                
                 materias.forEach(mat => {
                     const tr = document.createElement('tr');
                     tr.setAttribute('data-materia', mat.cve_materia);
-                    
                     tr.innerHTML = `
-                        <td class="text-start materia-titulo">${mat.NombreMateria}</td>
+            <td class="text-start materia-titulo">${mat.NombreMateria}</td>
                         <td>
                             <select class="form-select form-select-sm text-center" id="tipo_${mat.cve_materia}">
                                 ${opcionesTipoAsignaturaHTML}
@@ -301,14 +299,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. INTERACCIÓN EN TABLA Y GRÁFICA
     // =====================================================
     if (tbodyMaterias) {
-        // Darle vida al tache (eliminar barra del Gantt)
+
     if (bodyGantt) {
         bodyGantt.addEventListener('click', (e) => {
             if (e.target.classList.contains('btn-eliminar-barra')) {
-                // Obtenemos qué materia es
+
                 const cve = e.target.getAttribute('data-cve');
-                
-                // Limpiamos sus campos de inicio y fin en la tabla
                 const inputInicio = document.getElementById(`inicio_${cve}`);
                 const inputFin = document.getElementById(`fin_${cve}`);
                 const inputDuracion = document.getElementById(`duracion_${cve}`);
@@ -317,7 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(inputFin) inputFin.value = '';
                 if(inputDuracion) inputDuracion.value = '';
                 
-                // Redibujamos la gráfica (la barra desaparecerá mágicamente)
                 actualizarGrafica();
             }
         });
@@ -420,39 +415,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 11. VALIDACIÓN FINAL ANTES DE GUARDAR 
     // ==========================================
-    const params = new URLSearchParams(window.location.search);
-    const modoActual = params.get('modo');
+            const params = new URLSearchParams(window.location.search);
+            const modoActual = params.get('modo');
 
-    if (modoActual !== 'editar') {
-        const p = selPeriodo.value;
-        const c = selCarrera.value;
-        const pl = selPlan.value;
-        const g = selGrado.value;
+            if (modoActual !== 'editar') {
+                const p = selPeriodo.value;
+                const c = selCarrera.value;
+                const pl = selPlan.value;
+                const g = selGrado.value;
 
-        try {
-            
-            const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
-            const res = await resp.json();
+                try {
 
-            if (res.existe) {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Esta seriación ya se encuentra registrada, para hacer cambios ve al Historial.',
-                    icon: 'error',
-                    confirmButtonText: 'Aceptar'
-                });
-                return;
+                    const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
+                    const res = await resp.json();
+
+                    if (res.existe) {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Esta seriación ya se encuentra registrada, para hacer cambios ve al Historial.',
+                            icon: 'error',
+                            confirmButtonText: 'Aceptar'
+                        });
+                        return;
+                    }
+                } catch (err) {
+                    console.error("Error en la validación final:", err);
+                    return;
+                }
             }
-        } catch (err) {
-            console.error("Error en la validación final:", err);
-            return; 
-        }
-    }
             try {
                 const resultado = await ejecutarGuardado(materiasParaGuardar);
-                
+
                 if (resultado && resultado.success) {
-                
+
                     if (typeof showLoading === 'function') {
                         showLoading('Guardando y actualizando pantalla...');
                     }
@@ -461,10 +456,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(() => {
                         window.location.href = 'seriacion_mod_mixta.jsp';
                     }, 1500);
-                
 
-            } else {
-                showToast(resultado.error || 'Error al procesar el guardado.', 'error');
+
+                } else {
+                    showToast(resultado.error || 'Error al procesar el guardado.', 'error');
                 }
             } catch (error) {
                 console.error("Error en la ejecución:", error);
@@ -548,13 +543,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const contenedorCarreras = document.getElementById('listaCardsCarreras');
     let htmlCarreras = '';
 
-    carreras.forEach(carrera => {
-        const nombreUsuario = carrera.nombre_usuario ? carrera.nombre_usuario.toUpperCase() : 'SISTEMA';
-        const fechaMod = carrera.fecha_formateada || 'Sin fecha';
-        const numGrado = carrera.grado || carrera.cve_grado || '';
-        const badgeGrado = numGrado ? `<span class="badge bg-secondary text-white ms-2" style="font-size: 0.8rem; font-weight: normal;">${numGrado}° Cuatrimestre</span>` : '';
+        carreras.forEach(carrera => {
+            const nombreUsuario = carrera.nombre_usuario ? carrera.nombre_usuario.toUpperCase() : 'SISTEMA';
+            const fechaMod = carrera.fecha_formateada || 'Sin fecha';
+            const numGrado = carrera.grado || carrera.cve_grado || '';
+            const badgeGrado = numGrado ? `<span class="badge bg-secondary text-white ms-2" style="font-size: 0.8rem; font-weight: normal;">${numGrado}° Cuatrimestre</span>` : '';
 
-        htmlCarreras += `
+            htmlCarreras += `
             <div class="tarjeta-registro-carrera d-flex justify-content-between align-items-center p-3 border rounded shadow-sm bg-white mb-2">
                 <div>
                     <h6 class="fw-bold mb-1 text-dark d-flex align-items-center">
@@ -570,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
-    });
+        });
     contenedorCarreras.innerHTML = htmlCarreras;
 }
     const listaCarrerasDiv = document.getElementById('listaCardsCarreras');
@@ -582,22 +577,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = btn.getAttribute('data-periodo');
                 const c = btn.getAttribute('data-carrera');
                 const pl = btn.getAttribute('data-plan');
-                const g = btn.getAttribute('data-grado'); 
+                const g = btn.getAttribute('data-grado');
                 const nombreCarrera = btn.getAttribute('data-nombre');
-                
-                await abrirModalVerSeriacion(p, c, pl, g, nombreCarrera); 
+
+                await abrirModalVerSeriacion(p, c, pl, g, nombreCarrera);
             }
-            
-      
+
+
             else if (e.target.classList.contains('btn-editar')) {
-             
+
                 if (confirm("Se editará esta seriación y los datos se cargarán en la pantalla principal.\n\n¿Deseas continuar?")) {
                     const btn = e.target;
                     const p = btn.getAttribute('data-periodo');
                     const c = btn.getAttribute('data-carrera');
                     const pl = btn.getAttribute('data-plan');
                     const g = btn.getAttribute('data-grado');
-                    
+
 
                     window.location.href = `seriacion_mod_mixta.jsp?modo=editar&periodo=${p}&carrera=${c}&plan=${pl}&grado=${g}`;
                 }
@@ -605,13 +600,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-
     async function abrirModalVerSeriacion(periodo, carrera, plan, grado, nombreCarrera) {
-    try {
+        try {
 
-        const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}&grado=${grado}`);
-        const res = await resp.json();
+            const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}&grado=${grado}`);
+            const res = await resp.json();
 
             if (res.success) {
                 const materias = res.data;
@@ -626,13 +619,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
                     return fechaLimpia;
                 };
-                
+
                 document.getElementById('modalVerUsuario').textContent = ` ${materias[0].usuario.toUpperCase()}`;
                 document.getElementById('modalVerFecha').textContent = ` el ${materias[0].fechaAct}`;
-                
-                // ==========================================
-                // ACTUALIZAR EL TÍTULO DEL MODAL
-                // ==========================================
+
+    // ==========================================
+    // ACTUALIZAR EL TÍTULO DEL MODAL
+    // ==========================================
                 const grado = materias[0].grado || ''; 
                 const tituloModal = document.querySelector('#modalVerSeriacion .modal-title');
                 
@@ -653,10 +646,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>`;
                 });
                 document.getElementById('tbodyModalMaterias').innerHTML = htmlTabla;
-
     
                 const maxSemana = Math.max(...materias.map(m => parseInt(m.fin, 10)), 14); 
-
             
                 let htmlGantt = `<div style="display: grid; grid-template-columns: repeat(${maxSemana}, 1fr); gap: 8px;" class="mb-2">`;
                 for (let i = 1; i <= maxSemana; i++) {
@@ -690,9 +681,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // =====================================================
-    // BOTÓN VOLVER A PERIODOS
-    // =====================================================
+// =====================================================
+// BOTÓN VOLVER A PERIODOS
+// =====================================================
     document.addEventListener('click', (e) => {
 
         if (e.target.id === 'btnVolverPeriodos' || e.target.closest('#btnVolverPeriodos')) {
@@ -711,17 +702,16 @@ setTimeout(() => {
         const periodoEdit = parametrosEdicion.get('periodo');
         const carreraEdit = parametrosEdicion.get('carrera');
         const planEdit = parametrosEdicion.get('plan');
-        const gradoEdit = parametrosEdicion.get('grado');
+        const gradoEdit = parametrosEdicion.get('grado'); 
 
         llenarFiltrosEnSilencio(periodoEdit, carreraEdit, planEdit);
-        
-        cargarDatosParaEditar(periodoEdit, carreraEdit, planEdit);
+       
+        cargarDatosParaEditar(periodoEdit, carreraEdit, planEdit, gradoEdit); 
     }
 }, 500);
 
 async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
     try {
-    
         
         const periodos = await fetchFiltros('periodos');
         if (typeof selPeriodo !== 'undefined' && selPeriodo) {
@@ -750,9 +740,9 @@ async function llenarFiltrosEnSilencio(periodo, carrera, plan) {
     }
 }
 
-async function cargarDatosParaEditar(periodo, carrera, plan) {
+async function cargarDatosParaEditar(periodo, carrera, plan, grado) { 
     try {
-        const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}`);
+        const resp = await fetch(`Services/ObtenerDetalleSeriacionService.jsp?periodo=${periodo}&carrera=${carrera}&plan=${plan}&grado=${grado}`);
         const res = await resp.json();
 
         if (res.success && res.data && res.data.length > 0) {
@@ -845,6 +835,8 @@ async function cargarDatosParaEditar(periodo, carrera, plan) {
         console.error("Error al cargar datos para edición:", error);
     }
 }
+
+
     // =====================================================
     // 10. ARRANQUE DEL MÓDULO 
     // =====================================================
