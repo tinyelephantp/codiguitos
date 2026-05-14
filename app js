@@ -1,5 +1,5 @@
 // =====================================================
-// LÓGICA DE FRONT-END PARA SERIACIÓN E HISTORIAL
+// LÓGICA PARA SERIACIÓN E HISTORIAL
 // =====================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -195,10 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
+    
     if (selGrado) {
         selGrado.addEventListener('change', async function () {
-
             if (!this.value || !contenedorTabla || !tbodyMaterias) {
                 if (contenedorTabla) contenedorTabla.classList.add('d-none');
                 if (contenedorGrafica) contenedorGrafica.classList.add('d-none');
@@ -215,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     const params = new URLSearchParams(window.location.search);
     const esEdicion = params.get('modo') === 'editar';
-    
+
     if (!esEdicion && p && c && pl && g) {
         try {
             const resp = await fetch(`Services/VerificarExisteSeriacionService.jsp?p=${p}&c=${c}&pl=${pl}&g=${g}`);
@@ -235,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================
-    // 7. DIBUJAR TABLA SI TODO OK
+    // 7. DIBUJAR TABLA 
     // =========================================================
     const materias = await fetchFiltros('materias', {
         cve_periodo: p,
@@ -311,8 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if(inputInicio) inputInicio.value = '';
                 if(inputFin) inputFin.value = '';
-                if(inputDuracion) inputDuracion.value = '';
-                
+                if(inputDuracion) inputDuracion.value = '';  
                 actualizarGrafica();
             }
         });
@@ -468,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     // =====================================================
-    // 12. LÓGICA PARA EL HISTORIAL DE SERIACIONES 
+    // 12. HISTORIAL DE SERIACIONES 
     // =====================================================
     let datosHistorialGlobal = {}; 
 
@@ -559,9 +557,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         Actualizó: <span class="fw-bold text-secondary">${nombreUsuario}</span> el ${fechaMod}
                     </p>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-success btn-ver" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}" data-nombre="${carrera.nombre_carrera}">Ver</button>
-                    <button class="btn btn-sm btn-primary btn-editar" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}">Editar</button>
+                
+                <div class="dropdown">
+                    <button class="btn btn-sm text-white dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #005b8f;">
+                        <i class="fa-solid fa-gear me-1"></i> Opciones
+                    </button>
+                    <ul class="dropdown-menu shadow border-0" style="font-size: 0.9rem;">
+                        <li><a class="dropdown-item py-2 btn-ver" href="#" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}" data-nombre="${carrera.nombre_carrera}">
+                            <i class="fa-solid fa-eye text-primary me-2" style="width: 16px; text-align: center;"></i> Ver Detalle
+                        </a></li>
+                        <li><a class="dropdown-item py-2 btn-editar" href="#" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}">
+                            <i class="fa-solid fa-pencil text-warning me-2" style="width: 16px; text-align: center;"></i> Editar
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item py-2 btn-accion-imprimir" href="#" data-periodo="${carrera.cve_periodo}" data-carrera="${carrera.cve_carrera}" data-plan="${carrera.cve_plan}" data-grado="${numGrado}" data-nombre="${carrera.nombre_carrera}">
+                            <i class="fa-solid fa-print text-secondary me-2" style="width: 16px; text-align: center;"></i> Imprimir / Guardar PDF
+                        </a></li>
+                    </ul>
                 </div>
             </div>
         `;
@@ -569,33 +581,59 @@ document.addEventListener('DOMContentLoaded', () => {
     contenedorCarreras.innerHTML = htmlCarreras;
 }
     const listaCarrerasDiv = document.getElementById('listaCardsCarreras');
+    
     if (listaCarrerasDiv) {
         listaCarrerasDiv.addEventListener('click', async (e) => {
 
-            if (e.target.classList.contains('btn-ver')) {
-                const btn = e.target;
-                const p = btn.getAttribute('data-periodo');
-                const c = btn.getAttribute('data-carrera');
-                const pl = btn.getAttribute('data-plan');
-                const g = btn.getAttribute('data-grado');
-                const nombreCarrera = btn.getAttribute('data-nombre');
+            const btnVer = e.target.closest('.btn-ver');
+            const btnEditar = e.target.closest('.btn-editar');
+            const btnImprimir = e.target.closest('.btn-accion-imprimir');
+
+            if (btnVer) {
+                e.preventDefault();
+                const p = btnVer.getAttribute('data-periodo');
+                const c = btnVer.getAttribute('data-carrera');
+                const pl = btnVer.getAttribute('data-plan');
+                const g = btnVer.getAttribute('data-grado');
+                const nombreCarrera = btnVer.getAttribute('data-nombre');
 
                 await abrirModalVerSeriacion(p, c, pl, g, nombreCarrera);
             }
-
-
-            else if (e.target.classList.contains('btn-editar')) {
-
+            
+            else if (btnEditar) {
+                e.preventDefault();
                 if (confirm("Se editará esta seriación y los datos se cargarán en la pantalla principal.\n\n¿Deseas continuar?")) {
-                    const btn = e.target;
-                    const p = btn.getAttribute('data-periodo');
-                    const c = btn.getAttribute('data-carrera');
-                    const pl = btn.getAttribute('data-plan');
-                    const g = btn.getAttribute('data-grado');
-
+                    const p = btnEditar.getAttribute('data-periodo');
+                    const c = btnEditar.getAttribute('data-carrera');
+                    const pl = btnEditar.getAttribute('data-plan');
+                    const g = btnEditar.getAttribute('data-grado');
 
                     window.location.href = `seriacion_mod_mixta.jsp?modo=editar&periodo=${p}&carrera=${c}&plan=${pl}&grado=${g}`;
                 }
+            }
+            
+            else if (btnImprimir) {
+                e.preventDefault();
+                const p = btnImprimir.getAttribute('data-periodo');
+                const c = btnImprimir.getAttribute('data-carrera');
+                const pl = btnImprimir.getAttribute('data-plan');
+                const g = btnImprimir.getAttribute('data-grado'); 
+                const nombreCarrera = btnImprimir.getAttribute('data-nombre');
+                
+                await abrirModalVerSeriacion(p, c, pl, g, nombreCarrera); 
+                
+                window.onafterprint = function() {
+                    const modalElement = document.getElementById('modalVerSeriacion');
+                    const modalActivo = bootstrap.Modal.getInstance(modalElement);
+                    if (modalActivo) {
+                        modalActivo.hide();
+                    }
+                    window.onafterprint = null; 
+                };
+
+                setTimeout(() => { 
+                    window.print(); 
+                }, 600);
             }
         });
     }
